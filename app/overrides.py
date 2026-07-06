@@ -16,7 +16,7 @@ from .config import get_settings
 _lock = threading.Lock()
 
 # fields the admin may override (whitelist — ignore anything else)
-ALLOWED = {"active", "slate_size", "auto_slate", "team", "location_floor"}
+ALLOWED = {"active", "slate_size", "auto_slate", "team", "location_floor", "max_locations"}
 
 
 def _path() -> Path:

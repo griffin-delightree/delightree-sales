@@ -181,9 +181,12 @@ async def candidate_pool(
         # dormancy: empty last-contacted = never contacted = eligible; else must be >= cutoff old
         if last_dt is not None and last_dt > cutoff:
             skipped.append((name, EligibilityReason.RECENTLY_CONTACTED)); continue
-        # location floor: skip only if KNOWN and under floor; unknown is kept for web verification
+        # location band: skip only if KNOWN and outside [floor, ceiling]; unknown is
+        # kept for web verification. Ceiling (max_locations) is off unless set per-rep.
         if loc is not None and loc < rep.effective_location_floor:
             skipped.append((name, EligibilityReason.BELOW_LOCATION_FLOOR)); continue
+        if loc is not None and rep.max_locations is not None and loc > rep.max_locations:
+            skipped.append((name, EligibilityReason.ABOVE_LOCATION_CEILING)); continue
 
         reason = (
             EligibilityReason.OWNED_BY_REP

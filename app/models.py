@@ -44,6 +44,7 @@ class EligibilityReason(str, Enum):
     IS_CUSTOMER = "is_customer"
     ALREADY_WORKED = "already_worked"          # in tracker.completed_company_ids
     BELOW_LOCATION_FLOOR = "below_location_floor"
+    ABOVE_LOCATION_CEILING = "above_location_ceiling"
 
 
 class CandidateCompany(BaseModel):

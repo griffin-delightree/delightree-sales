@@ -257,7 +257,8 @@ def admin(rep: Rep = Depends(require_admin)):
           <div class="who"><b>{_html.escape(r.rep_name)}</b><span>{_html.escape(r.email)} · owner {_html.escape(r.hubspot_owner_id)}</span></div>
           {active_ctrl}
           <label class="c">slate <input type="number" name="slate_size" value="{r.slate_size}" min="1" max="10"></label>
-          <label class="c" title="Min locations to qualify. Blank = global default ({settings.location_floor}).">min-loc <input type="number" name="location_floor" value="{r.location_floor if r.location_floor is not None else ''}" min="1" max="500" placeholder="{settings.location_floor}"></label>
+          <label class="c" title="Min locations to qualify. Blank = global default ({settings.location_floor}).">min-loc <input type="number" name="location_floor" value="{r.location_floor if r.location_floor is not None else ''}" min="1" max="5000" placeholder="{settings.location_floor}"></label>
+          <label class="c" title="Max locations to qualify. Blank = no ceiling.">max-loc <input type="number" name="max_locations" value="{r.max_locations if r.max_locations is not None else ''}" min="1" max="5000" placeholder="∞"></label>
           <label class="c"><input type="checkbox" name="auto_slate" {'checked' if r.auto_slate else ''}> 7AM</label>
           <input class="tm" name="team" value="{_html.escape(r.team)}" placeholder="team">
           <button class="btn sm" type="submit">Save</button>
@@ -288,10 +289,11 @@ def admin(rep: Rep = Depends(require_admin)):
         <select name="active"><option value="">active: leave</option><option value="on">activate</option><option value="off">deactivate</option></select>
         <select name="auto_slate"><option value="">7AM: leave</option><option value="on">on</option><option value="off">off</option></select>
         <label>slate <input type="number" name="slate_size" min="1" max="10" placeholder="—" style="width:56px"></label>
-        <label>min-loc <input type="number" name="location_floor" min="1" max="500" placeholder="—" style="width:64px"></label>
+        <label>min-loc <input type="number" name="location_floor" min="1" max="5000" placeholder="—" style="width:64px"></label>
+        <label>max-loc <input type="number" name="max_locations" min="1" max="5000" placeholder="—" style="width:64px"></label>
         <button class="btn" type="submit">Apply to group</button>
       </form>
-      <p class="muted" style="font-size:12px">Deactivate the HubSpot users who will never use this so they drop off the login. Set slate size per rep (e.g. 5). <b>min-loc</b> is the minimum locations to qualify — blank inherits the global default ({settings.location_floor}); lower it for a rep with a thin dormant pool. Tag <b>7AM</b> to include a rep in the scheduled morning run.</p>
+      <p class="muted" style="font-size:12px">Deactivate the HubSpot users who will never use this so they drop off the login. Set slate size per rep (e.g. 5). <b>min-loc</b>/<b>max-loc</b> set the company-size band by location count for that rep's search: min-loc blank inherits the global default ({settings.location_floor}), max-loc blank means no upper limit. E.g. 15–50 targets mid-size multi-unit only. Tag <b>7AM</b> to include a rep in the scheduled morning run.</p>
       <div class="rows">{rows}</div>
     </div>"""
     css = ("body{background:#f6f7f9}.wrap{max-width:1000px;margin:0 auto;padding:16px}"
@@ -307,6 +309,17 @@ def admin(rep: Rep = Depends(require_admin)):
     return _shell_doc("Admin", f"<style>{css}</style>{inner}")
 
 
+def _opt_loc(raw) -> int | None:
+    """Parse an optional location bound; blank/invalid -> None (clear / no bound)."""
+    s = (raw or "").strip()
+    if not s:
+        return None
+    try:
+        return max(1, min(5000, int(s)))
+    except ValueError:
+        return None
+
+
 @app.post("/admin/rep")
 async def admin_rep(request: Request, rep: Rep = Depends(require_admin)):
     form = await request.form()
@@ -316,16 +329,11 @@ async def admin_rep(request: Request, rep: Rep = Depends(require_admin)):
             size = max(1, min(10, int(form.get("slate_size") or 3)))
         except ValueError:
             size = 3
-        # blank min-loc -> None -> inherit the global default (override is cleared)
-        floor_raw = (form.get("location_floor") or "").strip()
-        floor: int | None = None
-        if floor_raw:
-            try:
-                floor = max(1, min(500, int(floor_raw)))
-            except ValueError:
-                floor = None
+        # blank min/max-loc -> None -> cleared (floor inherits global; ceiling = none)
+        floor = _opt_loc(form.get("location_floor"))
+        ceil = _opt_loc(form.get("max_locations"))
         overrides.set_fields(email, active=("active" in form), auto_slate=("auto_slate" in form),
-                             slate_size=size, location_floor=floor,
+                             slate_size=size, location_floor=floor, max_locations=ceil,
                              team=(form.get("team") or "").strip())
     return RedirectResponse("/admin", status_code=303)
 
@@ -345,11 +353,10 @@ async def admin_bulk(request: Request, rep: Rep = Depends(require_admin)):
             fields["slate_size"] = max(1, min(10, int(form["slate_size"])))
         except ValueError:
             pass
-    if (form.get("location_floor") or "").strip():
-        try:
-            fields["location_floor"] = max(1, min(500, int(form["location_floor"])))
-        except ValueError:
-            pass
+    if (v := _opt_loc(form.get("location_floor"))) is not None:
+        fields["location_floor"] = v
+    if (v := _opt_loc(form.get("max_locations"))) is not None:
+        fields["max_locations"] = v
     if fields and targets:
         overrides.set_bulk(targets, **fields)
     return RedirectResponse("/admin", status_code=303)

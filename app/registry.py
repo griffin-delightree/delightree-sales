@@ -30,6 +30,7 @@ class Rep(BaseModel):
     auto_slate: bool = False                     # include in the weekday 7AM auto-generation
     slate_size: int = 3                          # accounts surfaced per day (admin-tunable)
     location_floor: Optional[int] = None         # min locations to qualify; None = global default
+    max_locations: Optional[int] = None          # max locations to qualify; None = no ceiling
     team: str = ""                               # team label for grouping / bulk actions
 
     @property
