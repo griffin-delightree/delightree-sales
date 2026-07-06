@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     # First-boot convenience: if credentials.json is empty and this is set, every rep
     # gets this temporary password so the team can log in immediately after deploy.
     bootstrap_password: str = Field(default="", alias="BOOTSTRAP_PASSWORD")
+    # Dedicated admin password: if set, EVERY admin account is (re)set to this on each
+    # boot. Controls admin-board access via one secret; separate from rep passwords.
+    bootstrap_password_admin: str = Field(default="", alias="BOOTSTRAP_PASSWORD_ADMIN")
 
     # --- non-Google team entry (shared link) ---
     # Shared passcode gate for the single team link. Anyone with the link + this

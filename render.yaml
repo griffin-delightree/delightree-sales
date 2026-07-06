@@ -35,5 +35,7 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
-      - key: BOOTSTRAP_PASSWORD   # first-login temp password for the whole team
+      - key: BOOTSTRAP_PASSWORD   # first-login temp password for the whole team (reps)
+        sync: false
+      - key: BOOTSTRAP_PASSWORD_ADMIN   # dedicated admin-board password (admins only)
         sync: false

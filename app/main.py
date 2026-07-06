@@ -37,16 +37,22 @@ app.add_middleware(
 
 @app.on_event("startup")
 def _bootstrap_credentials() -> None:
-    """First deploy: if no passwords exist yet and BOOTSTRAP_PASSWORD is set, seed
-    every rep with it so the team can log in immediately. Rotate per-user after."""
-    from .registry import load_reps
-    if not settings.bootstrap_password:
-        return
-    existing = auth._load_creds()
-    if existing:
-        return
-    for email in load_reps():
-        auth.set_password(email, settings.bootstrap_password)
+    """Password bootstrap on boot.
+    - Reps: seeded with BOOTSTRAP_PASSWORD only on first boot (empty credentials), so
+      per-user passwords set later aren't clobbered.
+    - Admins: (re)set to BOOTSTRAP_PASSWORD_ADMIN on EVERY boot, so admin-board access
+      is controlled by that one secret and applies to any admin you add later.
+    """
+    reps = load_reps()
+    # 1) first-boot rep seeding
+    if settings.bootstrap_password and not auth._load_creds():
+        for email in reps:
+            auth.set_password(email, settings.bootstrap_password)
+    # 2) admins always use the dedicated admin password (if configured)
+    if settings.bootstrap_password_admin:
+        for email, r in reps.items():
+            if r.is_admin:
+                auth.set_password(email, settings.bootstrap_password_admin)
 
 
 @app.on_event("startup")
