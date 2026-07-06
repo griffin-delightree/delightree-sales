@@ -46,3 +46,18 @@ def start(rep: Rep) -> str:
         _jobs[oid] = {"status": "running", "started": time.time()}
     threading.Thread(target=_run, args=(rep,), daemon=True).start()
     return "started"
+
+
+def start_batch(reps: list[Rep]) -> int:
+    """Generate slates for a set of reps sequentially in one background thread
+    (same path the 7AM scheduler uses). Returns how many were queued."""
+    with _lock:
+        for rep in reps:
+            _jobs[rep.hubspot_owner_id] = {"status": "running", "started": time.time()}
+
+    def _worker(batch: list[Rep]) -> None:
+        for rep in batch:
+            _run(rep)                     # sequential; gentle on the box + API
+
+    threading.Thread(target=_worker, args=(list(reps),), daemon=True).start()
+    return len(reps)

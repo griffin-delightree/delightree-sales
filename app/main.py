@@ -263,10 +263,19 @@ def admin(rep: Rep = Depends(require_admin)):
         </form>"""
 
     n_active = sum(1 for r in reps if r.active)
+    n_auto = sum(1 for r in reps if r.auto_slate)
+    sched_on = settings.schedule_enabled
+    sched = (f'<div class="sched"><b>Morning auto-run:</b> '
+             f'{"🟢 ON" if sched_on else "⚪ OFF"} · weekday {settings.schedule_hour:02d}:00 {settings.schedule_tz} · '
+             f'{n_auto} rep(s) tagged 7AM. '
+             f'{"" if sched_on else "Set SCHEDULE_ENABLED=true in Render to arm it. "}'
+             f'<form method="post" action="/admin/run-scheduled" style="display:inline">'
+             f'<button class="btn sm" type="submit">Run the 7AM batch now (test)</button></form></div>')
     inner = f"""
     <div class="bar"><div><b>Admin</b> · rep settings <span class="muted">({n_active} active of {len(reps)})</span></div>
       <a class="btn ghost" href="/">← back to my slate</a></div>
     <div class="wrap">
+      {sched}
       <form method="post" action="/admin/bulk" class="bulk">
         <b>Bulk:</b>
         <select name="scope"><option value="__all__">All reps</option>{team_opts}</select>
@@ -279,6 +288,7 @@ def admin(rep: Rep = Depends(require_admin)):
       <div class="rows">{rows}</div>
     </div>"""
     css = ("body{background:#f6f7f9}.wrap{max-width:1000px;margin:0 auto;padding:16px}"
+           ".sched{background:#fff;border:1px solid #e6e8ec;border-radius:12px;padding:12px;margin:14px 0;font-size:13px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}"
            ".bar{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#fff;border-bottom:1px solid #e6e8ec}"
            ".bulk{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #e6e8ec;border-radius:12px;padding:12px;margin:14px 0}"
            ".bulk select,.bulk input{padding:7px;border:1px solid #e6e8ec;border-radius:8px;font-size:13px}"
@@ -321,6 +331,15 @@ async def admin_bulk(request: Request, rep: Rep = Depends(require_admin)):
             pass
     if fields and targets:
         overrides.set_bulk(targets, **fields)
+    return RedirectResponse("/admin", status_code=303)
+
+
+@app.post("/admin/run-scheduled")
+def admin_run_scheduled(rep: Rep = Depends(require_admin)):
+    """Run the same batch the 7AM job runs (all auto_slate reps) — lets you test
+    the morning flow on demand instead of waiting for 7AM."""
+    targets = [r for r in active_reps() if r.auto_slate]
+    jobs.start_batch(targets)
     return RedirectResponse("/admin", status_code=303)
 
 
