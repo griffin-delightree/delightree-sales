@@ -21,7 +21,12 @@ _scheduler = None
 
 
 def _run_enabled() -> None:
-    """Generate slates for opted-in reps, one at a time (gentle on the box + API)."""
+    """Generate slates for opted-in reps, one at a time (gentle on the box + API).
+    Skips entirely unless the admin has the morning run switched ON."""
+    from . import schedule_state
+    if not schedule_state.is_enabled():
+        log.info("scheduler: fired but morning run is OFF; skipping")
+        return
     reps = [r for r in active_reps() if getattr(r, "auto_slate", False)]
     log.info("scheduler: generating slates for %d rep(s)", len(reps))
     from .pipeline.assemble import build_slate
@@ -34,10 +39,12 @@ def _run_enabled() -> None:
 
 
 def start_scheduler():
-    """Start the weekday-morning job if SCHEDULE_ENABLED. Safe no-op otherwise."""
+    """Register the weekday-morning job ALWAYS. Whether it does anything when it
+    fires is decided at fire time by schedule_state.is_enabled(), so the admin can
+    flip it on/off from the portal with no redeploy."""
     global _scheduler
     s = get_settings()
-    if not s.schedule_enabled or _scheduler is not None:
+    if _scheduler is not None:
         return _scheduler
     from apscheduler.schedulers.background import BackgroundScheduler
     from apscheduler.triggers.cron import CronTrigger
@@ -50,5 +57,6 @@ def start_scheduler():
         misfire_grace_time=3600,
     )
     _scheduler.start()
-    log.info("scheduler started: weekday %02d:00 %s", s.schedule_hour, s.schedule_tz)
+    log.info("scheduler registered: weekday %02d:00 %s (gated by admin toggle)",
+             s.schedule_hour, s.schedule_tz)
     return _scheduler

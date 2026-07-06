@@ -21,7 +21,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from .config import get_settings
 from .registry import Rep, get_rep, active_reps, load_reps
-from . import auth, storage, overrides
+from . import auth, storage, overrides, schedule_state
 from .pipeline import jobs
 from .scheduler import start_scheduler
 
@@ -57,7 +57,7 @@ def _bootstrap_credentials() -> None:
 
 @app.on_event("startup")
 def _start_scheduler() -> None:
-    """Weekday 7AM auto-generation (only if SCHEDULE_ENABLED)."""
+    """Register the weekday 7AM job; the admin toggle decides if it runs."""
     start_scheduler()
 
 # --- optional Google OAuth ---
@@ -265,13 +265,18 @@ def admin(rep: Rep = Depends(require_admin)):
 
     n_active = sum(1 for r in reps if r.active)
     n_auto = sum(1 for r in reps if r.auto_slate)
-    sched_on = settings.schedule_enabled
+    sched_on = schedule_state.is_enabled()
+    toggle_label = "Turn OFF" if sched_on else "Turn ON"
+    toggle_to = "0" if sched_on else "1"
+    warn = "" if n_auto else '<span style="color:#b45309">— tag reps 7AM first</span> '
     sched = (f'<div class="sched"><b>Morning auto-run:</b> '
              f'{"🟢 ON" if sched_on else "⚪ OFF"} · weekday {settings.schedule_hour:02d}:00 {settings.schedule_tz} · '
-             f'{n_auto} rep(s) tagged 7AM. '
-             f'{"" if sched_on else "Set SCHEDULE_ENABLED=true in Render to arm it. "}'
+             f'{n_auto} rep(s) tagged 7AM. {warn}'
+             f'<form method="post" action="/admin/schedule-toggle" style="display:inline">'
+             f'<input type="hidden" name="enabled" value="{toggle_to}">'
+             f'<button class="btn sm" type="submit">{toggle_label}</button></form>'
              f'<form method="post" action="/admin/run-scheduled" style="display:inline">'
-             f'<button class="btn sm" type="submit">Run the 7AM batch now (test)</button></form></div>')
+             f'<button class="btn sm ghost" type="submit">Run the 7AM batch now (test)</button></form></div>')
     inner = f"""
     <div class="bar"><div><b>Admin</b> · rep settings <span class="muted">({n_active} active of {len(reps)})</span></div>
       <a class="btn ghost" href="/">← back to my slate</a></div>
@@ -356,6 +361,14 @@ def admin_run_scheduled(rep: Rep = Depends(require_admin)):
     the morning flow on demand instead of waiting for 7AM."""
     targets = [r for r in active_reps() if r.auto_slate]
     jobs.start_batch(targets)
+    return RedirectResponse("/admin", status_code=303)
+
+
+@app.post("/admin/schedule-toggle")
+async def admin_schedule_toggle(request: Request, rep: Rep = Depends(require_admin)):
+    """Flip the weekday-morning auto-run on/off. Persisted on disk; no redeploy."""
+    form = await request.form()
+    schedule_state.set_enabled((form.get("enabled") or "").strip() == "1")
     return RedirectResponse("/admin", status_code=303)
 
 
