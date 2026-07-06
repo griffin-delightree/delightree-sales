@@ -25,8 +25,10 @@ class Rep(BaseModel):
     home_city: str = ""
     home_area_codes: list[str] = Field(default_factory=list)
     active: bool = True
-    role: str = "rep"                            # "rep" | "admin" (admin dashboard, later)
+    role: str = "rep"                            # "rep" | "admin" (admin dashboard)
     auto_slate: bool = False                     # include in the weekday 7AM auto-generation
+    slate_size: int = 3                          # accounts surfaced per day (admin-tunable)
+    team: str = ""                               # team label for grouping / bulk actions
 
     @property
     def is_admin(self) -> bool:
@@ -47,13 +49,16 @@ def _load_raw() -> dict[str, dict]:
     return {k: v for k, v in data.items() if not k.startswith("_")}
 
 
-@lru_cache
 def load_reps() -> dict[str, Rep]:
-    """email (lowercased) -> Rep. Fails fast on a malformed/incomplete record."""
+    """email (lowercased) -> Rep, with admin overrides overlaid on the HubSpot base.
+    Not cached: admin edits (overrides.json on disk) take effect immediately."""
+    from . import overrides
+    ov = overrides.load()
     reps: dict[str, Rep] = {}
     for email, cfg in _load_raw().items():
         key = email.strip().lower()
-        reps[key] = Rep(email=key, **cfg)
+        merged = {**cfg, **(ov.get(key) or {})}   # override wins over base
+        reps[key] = Rep(email=key, **merged)
     return reps
 
 

@@ -36,6 +36,7 @@ SLATE_SIZE = 3
 async def build_slate(rep: Rep, *, now: datetime | None = None, draft: bool = True) -> PageData:
     now = now or datetime.now(timezone.utc)
     today = now.date().isoformat()
+    size = rep.slate_size or SLATE_SIZE       # per-rep, admin-tunable (default 3)
     owner_id = rep.hubspot_owner_id
     tracker = storage.load_tracker(owner_id)
     completed = set(tracker.get("completed_company_ids", []))
@@ -61,10 +62,10 @@ async def build_slate(rep: Rep, *, now: datetime | None = None, draft: bool = Tr
             elif cid:
                 newly_completed.append(cid)
 
-        # --- fill to SLATE_SIZE from the pool (already ordered P1/oldest-first) ---
+        # --- fill to the rep's slate size from the pool (ordered P1/oldest-first) ---
         in_slate = {i["id"] for i in new_slate}
         for cand in run.eligible:
-            if len(new_slate) >= SLATE_SIZE:
+            if len(new_slate) >= size:
                 break
             if cand.id in in_slate or cand.id in completed or cand.id in newly_completed:
                 continue

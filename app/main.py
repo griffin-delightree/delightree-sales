@@ -20,8 +20,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from .config import get_settings
-from .registry import Rep, get_rep, active_reps
-from . import auth, storage
+from .registry import Rep, get_rep, active_reps, load_reps
+from . import auth, storage, overrides
 from .pipeline import jobs
 from .scheduler import start_scheduler
 
@@ -192,6 +192,7 @@ def dashboard(rep: Rep = Depends(current_rep)):
              <span class="muted">(owner {_html.escape(rep.hubspot_owner_id)})</span></div>
         <div class="actions">
           {run_btn}
+          {'<a class="btn ghost" href="/admin">Admin</a>' if rep.is_admin else ''}
           <a class="btn ghost" href="/logout">Log out</a>
         </div>
       </div>"""
@@ -218,6 +219,96 @@ def run(rep: Rep = Depends(current_rep)):
 @app.get("/healthz", response_class=PlainTextResponse)
 def healthz():
     return "ok"
+
+
+# ---------------------------- admin portal ----------------------------
+
+def require_admin(rep: Rep = Depends(current_rep)) -> Rep:
+    if not rep.is_admin:
+        raise HTTPException(status_code=403, detail="Admin only")
+    return rep
+
+
+@app.get("/admin", response_class=HTMLResponse)
+def admin(rep: Rep = Depends(require_admin)):
+    reps = sorted(load_reps().values(),
+                  key=lambda r: (not r.active, (r.team or "~"), r.rep_name.lower()))
+    teams = sorted({r.team for r in reps if r.team})
+    team_opts = "".join(f'<option value="{_html.escape(t)}">{_html.escape(t)}</option>' for t in teams)
+
+    rows = ""
+    for r in reps:
+        rows += f"""
+        <form method="post" action="/admin/rep" class="r{' off' if not r.active else ''}">
+          <input type="hidden" name="email" value="{_html.escape(r.email)}">
+          <div class="who"><b>{_html.escape(r.rep_name)}</b><span>{_html.escape(r.email)} · owner {_html.escape(r.hubspot_owner_id)}</span></div>
+          <label class="c"><input type="checkbox" name="active" {'checked' if r.active else ''}> active</label>
+          <label class="c">slate <input type="number" name="slate_size" value="{r.slate_size}" min="1" max="10"></label>
+          <label class="c"><input type="checkbox" name="auto_slate" {'checked' if r.auto_slate else ''}> 7AM</label>
+          <input class="tm" name="team" value="{_html.escape(r.team)}" placeholder="team">
+          <button class="btn sm" type="submit">Save</button>
+        </form>"""
+
+    n_active = sum(1 for r in reps if r.active)
+    inner = f"""
+    <div class="bar"><div><b>Admin</b> · rep settings <span class="muted">({n_active} active of {len(reps)})</span></div>
+      <a class="btn ghost" href="/">← back to my slate</a></div>
+    <div class="wrap">
+      <form method="post" action="/admin/bulk" class="bulk">
+        <b>Bulk:</b>
+        <select name="scope"><option value="__all__">All reps</option>{team_opts}</select>
+        <select name="active"><option value="">active: leave</option><option value="on">activate</option><option value="off">deactivate</option></select>
+        <select name="auto_slate"><option value="">7AM: leave</option><option value="on">on</option><option value="off">off</option></select>
+        <label>slate <input type="number" name="slate_size" min="1" max="10" placeholder="—" style="width:56px"></label>
+        <button class="btn" type="submit">Apply to group</button>
+      </form>
+      <p class="muted" style="font-size:12px">Deactivate the HubSpot users who will never use this so they drop off the login. Set slate size per rep (e.g. 5). Tag <b>7AM</b> to include a rep in the scheduled morning run.</p>
+      <div class="rows">{rows}</div>
+    </div>"""
+    css = ("body{background:#f6f7f9}.wrap{max-width:1000px;margin:0 auto;padding:16px}"
+           ".bar{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#fff;border-bottom:1px solid #e6e8ec}"
+           ".bulk{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #e6e8ec;border-radius:12px;padding:12px;margin:14px 0}"
+           ".bulk select,.bulk input{padding:7px;border:1px solid #e6e8ec;border-radius:8px;font-size:13px}"
+           ".r{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid #e6e8ec;border-radius:10px;padding:8px 12px;margin:6px 0;flex-wrap:wrap}"
+           ".r.off{opacity:.55}.who{flex:1;min-width:200px;display:flex;flex-direction:column}.who span{font-size:11px;color:#646b76}"
+           ".c{font-size:13px;display:flex;align-items:center;gap:4px;white-space:nowrap}.c input[type=number]{width:48px;padding:4px;border:1px solid #e6e8ec;border-radius:6px}"
+           ".tm{width:110px;padding:6px;border:1px solid #e6e8ec;border-radius:8px;font-size:13px}"
+           ".btn.sm{padding:7px 12px;font-size:13px}")
+    return _shell_doc("Admin", f"<style>{css}</style>{inner}")
+
+
+@app.post("/admin/rep")
+async def admin_rep(request: Request, rep: Rep = Depends(require_admin)):
+    form = await request.form()
+    email = (form.get("email") or "").strip().lower()
+    if get_rep(email):
+        try:
+            size = max(1, min(10, int(form.get("slate_size") or 3)))
+        except ValueError:
+            size = 3
+        overrides.set_fields(email, active=("active" in form), auto_slate=("auto_slate" in form),
+                             slate_size=size, team=(form.get("team") or "").strip())
+    return RedirectResponse("/admin", status_code=303)
+
+
+@app.post("/admin/bulk")
+async def admin_bulk(request: Request, rep: Rep = Depends(require_admin)):
+    form = await request.form()
+    scope = form.get("scope") or "__all__"
+    targets = [e for e, r in load_reps().items() if scope == "__all__" or r.team == scope]
+    fields: dict = {}
+    if form.get("active") in ("on", "off"):
+        fields["active"] = form.get("active") == "on"
+    if form.get("auto_slate") in ("on", "off"):
+        fields["auto_slate"] = form.get("auto_slate") == "on"
+    if (form.get("slate_size") or "").strip():
+        try:
+            fields["slate_size"] = max(1, min(10, int(form["slate_size"])))
+        except ValueError:
+            pass
+    if fields and targets:
+        overrides.set_bulk(targets, **fields)
+    return RedirectResponse("/admin", status_code=303)
 
 
 # ---------------------------- html helpers ----------------------------
