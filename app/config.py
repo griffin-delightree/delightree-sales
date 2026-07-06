@@ -61,6 +61,11 @@ class Settings(BaseSettings):
     dormancy_days: int = 30
     location_floor: int = 20
 
+    # --- scheduler (step 7) ---
+    schedule_enabled: bool = Field(default=False, alias="SCHEDULE_ENABLED")
+    schedule_hour: int = Field(default=7, alias="SCHEDULE_HOUR")        # 24h local time
+    schedule_tz: str = Field(default="America/Denver", alias="SCHEDULE_TZ")
+
 
 @lru_cache
 def get_settings() -> Settings:

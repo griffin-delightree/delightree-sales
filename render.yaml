@@ -22,6 +22,14 @@ services:
         value: "8332146"
       - key: ANTHROPIC_MODEL
         value: claude-opus-4-8
+      # 7AM auto-generation. Flip to "true" once you've set "auto_slate": true on the ADRs
+      # who should get a daily slate (drafting every user daily is costly).
+      - key: SCHEDULE_ENABLED
+        value: "false"
+      - key: SCHEDULE_TZ
+        value: America/Denver
+      - key: SCHEDULE_HOUR
+        value: "7"
       # --- paste these in the Render dashboard (Environment tab) ---
       - key: HUBSPOT_TOKEN
         sync: false

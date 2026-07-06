@@ -22,7 +22,8 @@ from starlette.middleware.sessions import SessionMiddleware
 from .config import get_settings
 from .registry import Rep, get_rep, active_reps
 from . import auth, storage
-from .pipeline.assemble import build_slate
+from .pipeline import jobs
+from .scheduler import start_scheduler
 
 settings = get_settings()
 app = FastAPI(title="Delightree Prospecting Portal")
@@ -46,6 +47,12 @@ def _bootstrap_credentials() -> None:
         return
     for email in load_reps():
         auth.set_password(email, settings.bootstrap_password)
+
+
+@app.on_event("startup")
+def _start_scheduler() -> None:
+    """Weekday 7AM auto-generation (only if SCHEDULE_ENABLED)."""
+    start_scheduler()
 
 # --- optional Google OAuth ---
 _oauth = None
@@ -157,25 +164,40 @@ def logout(request: Request):
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard(rep: Rep = Depends(current_rep)):
+    running = jobs.is_running(rep.hubspot_owner_id)
+    st = jobs.status(rep.hubspot_owner_id)
     has_page = storage.load_page(rep.hubspot_owner_id) is not None
-    body = (
-        '<iframe src="/page" title="Daily slate"></iframe>'
-        if has_page else
-        '<div class="box"><h1>No slate yet</h1>'
-        '<p class="muted">Generate your first daily re-engagement slate.</p></div>'
-    )
+
+    if running:
+        body = (
+            '<div class="box"><h1>Building your slate…</h1>'
+            '<p class="muted">Researching your accounts and writing every A/B email. '
+            'This takes ~2-3 minutes. This page refreshes itself — no need to wait here.</p>'
+            '<div class="spinner"></div></div>'
+        )
+    elif has_page:
+        body = '<iframe src="/page" title="Daily slate"></iframe>'
+    else:
+        err = st.get("error")
+        note = (f'<p style="color:#b91c1c;font-size:13px">Last run errored: {_html.escape(err)}</p>'
+                if err else '<p class="muted">Generate your first daily re-engagement slate.</p>')
+        body = f'<div class="box"><h1>No slate yet</h1>{note}</div>'
+
+    run_btn = ('<span class="btn" style="opacity:.6">Building…</span>' if running else
+               '<form method="post" action="/run"><button class="btn" type="submit">'
+               f'{"Re-run my slate" if has_page else "Run my slate now"}</button></form>')
     bar = f"""
       <div class="bar">
         <div><b>Daily Re-Engagement</b> &middot; {_html.escape(rep.rep_name)}
              <span class="muted">(owner {_html.escape(rep.hubspot_owner_id)})</span></div>
         <div class="actions">
-          <form method="post" action="/run" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Running (this can take a minute)...'">
-            <button class="btn" type="submit">Run my slate now</button>
-          </form>
+          {run_btn}
           <a class="btn ghost" href="/logout">Log out</a>
         </div>
       </div>"""
-    return _shell_doc(f"{rep.rep_name} - Daily Slate", bar + body, full=True)
+    # while a job runs, auto-refresh so the page flips to the slate when ready
+    return _shell_doc(f"{rep.rep_name} - Daily Slate", bar + body, full=True,
+                      refresh=12 if running else 0)
 
 
 @app.get("/page", response_class=HTMLResponse)
@@ -188,8 +210,8 @@ def page(rep: Rep = Depends(current_rep)):
 
 
 @app.post("/run")
-async def run(rep: Rep = Depends(current_rep)):
-    await build_slate(rep)
+def run(rep: Rep = Depends(current_rep)):
+    jobs.start(rep)                       # kicks off a background thread, returns instantly
     return RedirectResponse("/", status_code=303)
 
 
@@ -206,7 +228,8 @@ def _forbidden(msg: str) -> HTMLResponse:
         f'<a class="btn ghost" href="/login">Back to sign in</a></div>'), status_code=403)
 
 
-def _shell_doc(title: str, inner: str, full: bool = False, picker: bool = False) -> str:
+def _shell_doc(title: str, inner: str, full: bool = False, picker: bool = False,
+               refresh: int = 0) -> str:
     frame_css = (
         "iframe{width:100%;border:0;height:calc(100vh - 56px)}"
         ".bar{height:56px;display:flex;align-items:center;justify-content:space-between;"
@@ -222,10 +245,14 @@ def _shell_doc(title: str, inner: str, full: bool = False, picker: bool = False)
         ".pn{font-weight:800;font-size:15px;color:#16181d}"
         ".pe{font-size:12px;color:#646b76}"
     )
+    refresh_tag = f'<meta http-equiv="refresh" content="{refresh}">' if refresh else ""
     return f"""<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+{refresh_tag}
 <title>{_html.escape(title)}</title>
 <style>
+.spinner{{width:28px;height:28px;margin:18px auto 0;border:3px solid #e6e8ec;border-top-color:#4f46e5;border-radius:50%;animation:spin 1s linear infinite}}
+@keyframes spin{{to{{transform:rotate(360deg)}}}}
 *{{box-sizing:border-box}}
 body{{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f6f7f9;color:#16181d}}
 .muted{{color:#646b76;font-size:14px}}

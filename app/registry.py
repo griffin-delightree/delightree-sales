@@ -26,6 +26,7 @@ class Rep(BaseModel):
     home_area_codes: list[str] = Field(default_factory=list)
     active: bool = True
     role: str = "rep"                            # "rep" | "admin" (admin dashboard, later)
+    auto_slate: bool = False                     # include in the weekday 7AM auto-generation
 
     @property
     def is_admin(self) -> bool:
