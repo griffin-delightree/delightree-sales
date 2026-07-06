@@ -182,7 +182,7 @@ async def candidate_pool(
         if last_dt is not None and last_dt > cutoff:
             skipped.append((name, EligibilityReason.RECENTLY_CONTACTED)); continue
         # location floor: skip only if KNOWN and under floor; unknown is kept for web verification
-        if loc is not None and loc < settings.location_floor:
+        if loc is not None and loc < rep.effective_location_floor:
             skipped.append((name, EligibilityReason.BELOW_LOCATION_FLOOR)); continue
 
         reason = (

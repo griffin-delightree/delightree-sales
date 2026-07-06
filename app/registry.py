@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 from pathlib import Path
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -28,11 +29,17 @@ class Rep(BaseModel):
     role: str = "rep"                            # "rep" | "admin" (admin dashboard)
     auto_slate: bool = False                     # include in the weekday 7AM auto-generation
     slate_size: int = 3                          # accounts surfaced per day (admin-tunable)
+    location_floor: Optional[int] = None         # min locations to qualify; None = global default
     team: str = ""                               # team label for grouping / bulk actions
 
     @property
     def is_admin(self) -> bool:
         return self.role == "admin"
+
+    @property
+    def effective_location_floor(self) -> int:
+        """Per-rep floor if set, else the global default from settings."""
+        return self.location_floor if self.location_floor is not None else get_settings().location_floor
 
     @property
     def owned_by_me_owner_ids(self) -> list[str]:

@@ -60,9 +60,9 @@ class Settings(BaseSettings):
     data_dir: Path = Field(default=Path("./data"), alias="DATA_DIR")
     reps_file: Path = Field(default=Path("./reps.json"), alias="REPS_FILE")
 
-    # --- Engine defaults (overridable per-rep later if needed) ---
-    dormancy_days: int = 30
-    location_floor: int = 20
+    # --- Engine defaults (global; location_floor is overridable per-rep in admin) ---
+    dormancy_days: int = Field(default=30, alias="DORMANCY_DAYS")
+    location_floor: int = Field(default=20, alias="LOCATION_FLOOR")
 
     # --- scheduler (step 7) ---
     schedule_enabled: bool = Field(default=False, alias="SCHEDULE_ENABLED")

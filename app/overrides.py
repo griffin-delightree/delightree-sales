@@ -16,7 +16,7 @@ from .config import get_settings
 _lock = threading.Lock()
 
 # fields the admin may override (whitelist — ignore anything else)
-ALLOWED = {"active", "slate_size", "auto_slate", "team"}
+ALLOWED = {"active", "slate_size", "auto_slate", "team", "location_floor"}
 
 
 def _path() -> Path:
@@ -43,12 +43,22 @@ def set_bulk(emails: list[str], **fields) -> None:
 
 
 def _apply(emails: list[str], fields: dict) -> None:
-    clean = {k: v for k, v in fields.items() if k in ALLOWED and v is not None}
+    # None means "reset to base/global default" -> drop the key from the overlay.
+    clean = {k: v for k, v in fields.items() if k in ALLOWED}
     if not clean:
         return
     with _lock:
         d = load()
         for email in emails:
             e = email.strip().lower()
-            d[e] = {**d.get(e, {}), **clean}
+            cur = dict(d.get(e, {}))
+            for k, v in clean.items():
+                if v is None:
+                    cur.pop(k, None)
+                else:
+                    cur[k] = v
+            if cur:
+                d[e] = cur
+            else:
+                d.pop(e, None)
         _path().write_text(json.dumps(d, indent=2))
