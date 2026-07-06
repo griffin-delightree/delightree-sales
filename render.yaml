@@ -1,0 +1,31 @@
+# Render Blueprint — deploys the portal as a live HTTPS web service.
+# In Render: New + → Blueprint → connect this repo → it reads this file.
+# Secrets (sync:false) are pasted once in the Render dashboard, never in git.
+services:
+  - type: web
+    name: delightree-portal
+    runtime: docker
+    plan: starter            # ~$7/mo; keeps the service always-on (free tier sleeps)
+    healthCheckPath: /healthz
+    disk:
+      name: portal-data       # persists per-rep slates + password hashes across deploys
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR
+        value: /var/data
+      - key: SESSION_HTTPS_ONLY
+        value: "true"
+      - key: SESSION_SECRET
+        generateValue: true   # Render generates a strong random secret
+      - key: HUBSPOT_PORTAL_ID
+        value: "8332146"
+      - key: ANTHROPIC_MODEL
+        value: claude-opus-4-8
+      # --- paste these in the Render dashboard (Environment tab) ---
+      - key: HUBSPOT_TOKEN
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: BOOTSTRAP_PASSWORD   # first-login temp password for the whole team
+        sync: false

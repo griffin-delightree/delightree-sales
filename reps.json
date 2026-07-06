@@ -1,0 +1,665 @@
+{
+  "_comment": "Rep registry. THE source of truth for every per-rep value. Keyed by Google Workspace email (lowercased). No owner id, name, signature, or city is hardcoded anywhere else in the app. Add one object per active rep. `active:false` excludes a rep from the 7AM scheduler but still lets them log in.",
+  "justin@delightree.com": {
+    "rep_name": "Justin Hoke",
+    "hubspot_owner_id": "83840653",
+    "ae_owner_ids": [
+      "91491264",
+      "89337815",
+      "63616141"
+    ],
+    "signature": "Best, Justin Hoke | Book a Meeting | Delightree",
+    "booking_link": "https://REPLACE-with-justins-booking-link",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true
+  },
+  "griffin@delightree.com": {
+    "rep_name": "Griffin Lloyd",
+    "hubspot_owner_id": "80110187",
+    "ae_owner_ids": [],
+    "signature": "Best, Griffin Lloyd | Book a Meeting | Delightree",
+    "booking_link": "https://REPLACE-with-griffins-booking-link",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "admin"
+  },
+  "_example_rep@delightree.com": {
+    "rep_name": "Example Rep",
+    "hubspot_owner_id": "REPLACE_OWNER_ID",
+    "ae_owner_ids": [],
+    "signature": "Best, Example Rep | Book a Meeting | Delightree",
+    "booking_link": "https://REPLACE",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": false
+  },
+  "zac@budburst.io": {
+    "rep_name": "Zac Trojak",
+    "hubspot_owner_id": "29946150",
+    "ae_owner_ids": [],
+    "signature": "Best, Zac Trojak | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "tushar@delightree.com": {
+    "rep_name": "Tushar Mishra",
+    "hubspot_owner_id": "50430641",
+    "ae_owner_ids": [],
+    "signature": "Best, Tushar Mishra | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "madhulika@delightree.com": {
+    "rep_name": "Madhulika Mukherjee",
+    "hubspot_owner_id": "50431160",
+    "ae_owner_ids": [],
+    "signature": "Best, Madhulika Mukherjee | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "keegan@delightree.com": {
+    "rep_name": "Keegan Santasiere",
+    "hubspot_owner_id": "63616141",
+    "ae_owner_ids": [],
+    "signature": "Best, Keegan Santasiere | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "jessica@delightree.com": {
+    "rep_name": "Jess Lundquist",
+    "hubspot_owner_id": "75747815",
+    "ae_owner_ids": [],
+    "signature": "Best, Jess Lundquist | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "nihaal@delightree.com": {
+    "rep_name": "Nihaal Gupta",
+    "hubspot_owner_id": "78163885",
+    "ae_owner_ids": [],
+    "signature": "Best, Nihaal Gupta | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "reshma@delightree.com": {
+    "rep_name": "Reshma Deppak",
+    "hubspot_owner_id": "78163886",
+    "ae_owner_ids": [],
+    "signature": "Best, Reshma Deppak | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "akash@innoviuscapital.com": {
+    "rep_name": "Akash Bose",
+    "hubspot_owner_id": "78845251",
+    "ae_owner_ids": [],
+    "signature": "Best, Akash Bose | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "tristan@delightree.com": {
+    "rep_name": "Tristan Eckley",
+    "hubspot_owner_id": "80110476",
+    "ae_owner_ids": [],
+    "signature": "Best, Tristan Eckley | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "connor@delightree.com": {
+    "rep_name": "Connor Rosell",
+    "hubspot_owner_id": "80229341",
+    "ae_owner_ids": [],
+    "signature": "Best, Connor Rosell | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "logan@delightree.com": {
+    "rep_name": "Logan Lair",
+    "hubspot_owner_id": "81291048",
+    "ae_owner_ids": [],
+    "signature": "Best, Logan Lair | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "dilipg@delightree.com": {
+    "rep_name": "Dilip G",
+    "hubspot_owner_id": "81634370",
+    "ae_owner_ids": [],
+    "signature": "Best, Dilip G | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "yana@delightree.com": {
+    "rep_name": "Yana Vainerovsky",
+    "hubspot_owner_id": "84502464",
+    "ae_owner_ids": [],
+    "signature": "Best, Yana Vainerovsky | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "faith@delightree.com": {
+    "rep_name": "Faith Bennett",
+    "hubspot_owner_id": "87081976",
+    "ae_owner_ids": [],
+    "signature": "Best, Faith Bennett | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "ted@delightree.com": {
+    "rep_name": "Ted Mackay",
+    "hubspot_owner_id": "88062709",
+    "ae_owner_ids": [],
+    "signature": "Best, Ted Mackay | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "thomas@delightree.com": {
+    "rep_name": "Thomas Ryan",
+    "hubspot_owner_id": "88063140",
+    "ae_owner_ids": [],
+    "signature": "Best, Thomas Ryan | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "ben@delightree.com": {
+    "rep_name": "Ben Shapiro",
+    "hubspot_owner_id": "88063142",
+    "ae_owner_ids": [],
+    "signature": "Best, Ben Shapiro | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "adrian@delightree.com": {
+    "rep_name": "Adrian Reiter",
+    "hubspot_owner_id": "88065736",
+    "ae_owner_ids": [],
+    "signature": "Best, Adrian Reiter | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "sam.efthim@delightree.com": {
+    "rep_name": "Sam Efthim",
+    "hubspot_owner_id": "88073231",
+    "ae_owner_ids": [],
+    "signature": "Best, Sam Efthim | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "erin@budburst.io": {
+    "rep_name": "Erin Malone",
+    "hubspot_owner_id": "88646969",
+    "ae_owner_ids": [],
+    "signature": "Best, Erin Malone | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "ashley@delightree.com": {
+    "rep_name": "Ashley Mahan",
+    "hubspot_owner_id": "89337815",
+    "ae_owner_ids": [],
+    "signature": "Best, Ashley Mahan | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "gerry@delightree.com": {
+    "rep_name": "Gerry Raimondo",
+    "hubspot_owner_id": "89337820",
+    "ae_owner_ids": [],
+    "signature": "Best, Gerry Raimondo | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "emma@delightree.com": {
+    "rep_name": "Emma Schenkenberger",
+    "hubspot_owner_id": "89418609",
+    "ae_owner_ids": [],
+    "signature": "Best, Emma Schenkenberger | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "isabel@delightree.com": {
+    "rep_name": "Isabel Regine",
+    "hubspot_owner_id": "90352640",
+    "ae_owner_ids": [],
+    "signature": "Best, Isabel Regine | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "abrianah@delightree.com": {
+    "rep_name": "Abrianah Aldewick",
+    "hubspot_owner_id": "90544545",
+    "ae_owner_ids": [],
+    "signature": "Best, Abrianah Aldewick | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "ali@innoviuscapital.com": {
+    "rep_name": "Ali Mehdi",
+    "hubspot_owner_id": "91163147",
+    "ae_owner_ids": [],
+    "signature": "Best, Ali Mehdi | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "christina@delightree.com": {
+    "rep_name": "Christina Haidemenos",
+    "hubspot_owner_id": "91210474",
+    "ae_owner_ids": [],
+    "signature": "Best, Christina Haidemenos | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "ben.newman@delightree.com": {
+    "rep_name": "Ben Newman",
+    "hubspot_owner_id": "91491264",
+    "ae_owner_ids": [],
+    "signature": "Best, Ben Newman | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "keaton@delightree.com": {
+    "rep_name": "Keaton Kidder",
+    "hubspot_owner_id": "91491265",
+    "ae_owner_ids": [],
+    "signature": "Best, Keaton Kidder | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "peter.haideman@delightree.com": {
+    "rep_name": "Peter Haideman",
+    "hubspot_owner_id": "93381285",
+    "ae_owner_ids": [],
+    "signature": "Best, Peter Haideman | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "danlamm@delightree.com": {
+    "rep_name": "Dan Lamm",
+    "hubspot_owner_id": "94296866",
+    "ae_owner_ids": [],
+    "signature": "Best, Dan Lamm | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "elliott@delightree.com": {
+    "rep_name": "Elliott Taylor",
+    "hubspot_owner_id": "94580988",
+    "ae_owner_ids": [],
+    "signature": "Best, Elliott Taylor | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "jennifer@delightree.com": {
+    "rep_name": "Jenny Orren",
+    "hubspot_owner_id": "94580989",
+    "ae_owner_ids": [],
+    "signature": "Best, Jenny Orren | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "abdullah@delightree.com": {
+    "rep_name": "Abdullah Ghani",
+    "hubspot_owner_id": "159495357",
+    "ae_owner_ids": [],
+    "signature": "Best, Abdullah Ghani | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "doug@delightree.com": {
+    "rep_name": "Doug Gabbard",
+    "hubspot_owner_id": "399714405",
+    "ae_owner_ids": [],
+    "signature": "Best, Doug Gabbard | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "accounting@delightree.com": {
+    "rep_name": "Khushi Jain",
+    "hubspot_owner_id": "652090601",
+    "ae_owner_ids": [],
+    "signature": "Best, Khushi Jain | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "angelica@delightree.com": {
+    "rep_name": "Angelica Bellechasse",
+    "hubspot_owner_id": "729611896",
+    "ae_owner_ids": [],
+    "signature": "Best, Angelica Bellechasse | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "tyler@delightree.com": {
+    "rep_name": "Tyler Mullins",
+    "hubspot_owner_id": "749197642",
+    "ae_owner_ids": [],
+    "signature": "Best, Tyler Mullins | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "ifiok@delightree.com": {
+    "rep_name": "Ifiok Umoh",
+    "hubspot_owner_id": "845875168",
+    "ae_owner_ids": [],
+    "signature": "Best, Ifiok Umoh | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "mihir@usacfo.com": {
+    "rep_name": "Mihir Vora",
+    "hubspot_owner_id": "2033886540",
+    "ae_owner_ids": [],
+    "signature": "Best, Mihir Vora | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  },
+  "joseph@delightree.com": {
+    "rep_name": "Joseph Ortega",
+    "hubspot_owner_id": "2129161220",
+    "ae_owner_ids": [],
+    "signature": "Best, Joseph Ortega | Book a Meeting | Delightree",
+    "booking_link": "",
+    "home_city": "Denver",
+    "home_area_codes": [
+      "303",
+      "720",
+      "970"
+    ],
+    "active": true,
+    "role": "rep"
+  }
+}

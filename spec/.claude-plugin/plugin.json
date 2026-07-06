@@ -1,0 +1,15 @@
+{
+  "name": "delightree-prospecting",
+  "version": "0.2.0",
+  "description": "Delightree ADR prospecting system: scoped skills (Global Rules, Recon, Kyle, Vinci, Santa, Conductor, rep-profile) plus a Daily Re-Engagement engine. Verified contacts, account strategy, on-playbook A/B emails, gifting, daily 3-account slate. Drafts only.",
+  "author": {
+    "name": "Justin Hoke (Delightree)"
+  },
+  "keywords": [
+    "prospecting",
+    "franchise",
+    "sales",
+    "delightree",
+    "outbound"
+  ]
+}

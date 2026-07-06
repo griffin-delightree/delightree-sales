@@ -1,0 +1,18 @@
+{
+  "rep_name": "Your Name",
+  "rep_email": "you@delightree.com",
+  "hubspot_owner_id": "YOUR_HUBSPOT_OWNER_ID",
+  "ae_owner_ids": [
+    "AE_OWNER_ID_1",
+    "AE_OWNER_ID_2"
+  ],
+  "booking_link": "https://YOUR-BOOKING-LINK",
+  "signature": "Best, Your Name | Book a Meeting | Delightree",
+  "dormancy_days": 30,
+  "location_floor": 20,
+  "home_city": "Your City",
+  "home_area_codes": [
+    "XXX",
+    "XXX"
+  ]
+}

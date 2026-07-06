@@ -1,0 +1,22 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# per-rep generated data (companies, contacts, drafts, trackers)
+data/
+!data/.gitkeep
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# os
+.DS_Store
+
+# local editor / preview config
+.claude/

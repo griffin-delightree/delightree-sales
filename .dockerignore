@@ -1,0 +1,15 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+data/
+spec/
+tests/
+scratch_inject_emails.py
+run_portal.py
+.git/
+.DS_Store
+.claude/
+pytest.ini
