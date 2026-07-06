@@ -238,11 +238,18 @@ def admin(rep: Rep = Depends(require_admin)):
 
     rows = ""
     for r in reps:
+        # admins are always active and cannot be switched off (prevents self-lockout)
+        if r.is_admin:
+            active_ctrl = ('<label class="c"><input type="checkbox" checked disabled> active '
+                           '<span style="font-size:10px;color:#4f46e5">(admin)</span></label>'
+                           '<input type="hidden" name="active" value="on">')
+        else:
+            active_ctrl = f'<label class="c"><input type="checkbox" name="active" {"checked" if r.active else ""}> active</label>'
         rows += f"""
         <form method="post" action="/admin/rep" class="r{' off' if not r.active else ''}">
           <input type="hidden" name="email" value="{_html.escape(r.email)}">
           <div class="who"><b>{_html.escape(r.rep_name)}</b><span>{_html.escape(r.email)} · owner {_html.escape(r.hubspot_owner_id)}</span></div>
-          <label class="c"><input type="checkbox" name="active" {'checked' if r.active else ''}> active</label>
+          {active_ctrl}
           <label class="c">slate <input type="number" name="slate_size" value="{r.slate_size}" min="1" max="10"></label>
           <label class="c"><input type="checkbox" name="auto_slate" {'checked' if r.auto_slate else ''}> 7AM</label>
           <input class="tm" name="team" value="{_html.escape(r.team)}" placeholder="team">

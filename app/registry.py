@@ -58,6 +58,8 @@ def load_reps() -> dict[str, Rep]:
     for email, cfg in _load_raw().items():
         key = email.strip().lower()
         merged = {**cfg, **(ov.get(key) or {})}   # override wins over base
+        if merged.get("role") == "admin":
+            merged["active"] = True                # admins can never be deactivated (no self-lockout)
         reps[key] = Rep(email=key, **merged)
     return reps
 
