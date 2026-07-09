@@ -347,16 +347,24 @@ def admin(rep: Rep = Depends(require_admin)):
     for r in reps:
         # admins are always active and cannot be switched off (prevents self-lockout)
         if r.is_admin:
-            active_ctrl = ('<label class="c"><input type="checkbox" checked disabled> active '
-                           '<span style="font-size:10px;color:#4f46e5">(admin)</span></label>'
+            active_ctrl = ('<label class="c"><input type="checkbox" checked disabled> active</label>'
                            '<input type="hidden" name="active" value="on">')
         else:
             active_ctrl = f'<label class="c"><input type="checkbox" name="active" {"checked" if r.active else ""}> active</label>'
+        # admin role: you cannot demote yourself (no self-lockout); others are toggleable
+        if r.email == rep.email:
+            admin_ctrl = ('<label class="c" title="You can\'t remove your own admin access">'
+                          '<input type="checkbox" checked disabled> admin (you)</label>'
+                          '<input type="hidden" name="make_admin" value="on">')
+        else:
+            admin_ctrl = (f'<label class="c" title="Admin-board access"><input type="checkbox" '
+                          f'name="make_admin" {"checked" if r.is_admin else ""}> admin</label>')
         rows += f"""
         <form method="post" action="/admin/rep" class="r{' off' if not r.active else ''}">
           <input type="hidden" name="email" value="{_html.escape(r.email)}">
           <div class="who"><b>{_html.escape(r.rep_name)}</b><span>{_html.escape(r.email)} · owner {_html.escape(r.hubspot_owner_id)}</span></div>
           {active_ctrl}
+          {admin_ctrl}
           <label class="c">slate <input type="number" name="slate_size" value="{r.slate_size}" min="1" max="10"></label>
           <label class="c" title="Min locations to qualify. Blank = global default ({settings.location_floor}).">min-loc <input type="number" name="location_floor" value="{r.location_floor if r.location_floor is not None else ''}" min="1" max="5000" placeholder="{settings.location_floor}"></label>
           <label class="c" title="Max locations to qualify. Blank = no ceiling.">max-loc <input type="number" name="max_locations" value="{r.max_locations if r.max_locations is not None else ''}" min="1" max="5000" placeholder="∞"></label>
@@ -395,7 +403,7 @@ def admin(rep: Rep = Depends(require_admin)):
         <label>max-loc <input type="number" name="max_locations" min="1" max="5000" placeholder="—" style="width:64px"></label>
         <button class="btn" type="submit">Apply to group</button>
       </form>
-      <p class="muted" style="font-size:12px">Deactivate the HubSpot users who will never use this so they drop off the login. Set slate size per rep (e.g. 5). <b>min-loc</b>/<b>max-loc</b> set the company-size band by location count for that rep's search: min-loc blank inherits the global default ({settings.location_floor}), max-loc blank means no upper limit. E.g. 15–50 targets mid-size multi-unit only. Tag <b>7AM</b> to include a rep in the scheduled morning run.</p>
+      <p class="muted" style="font-size:12px">Deactivate the HubSpot users who will never use this so they drop off the login. Set slate size per rep (e.g. 5). <b>min-loc</b>/<b>max-loc</b> set the company-size band by location count for that rep's search: min-loc blank inherits the global default ({settings.location_floor}), max-loc blank means no upper limit. E.g. 15–50 targets mid-size multi-unit only. Tag <b>7AM</b> to include a rep in the scheduled morning run. Tick <b>admin</b> to grant a teammate admin-board access — their login password is set to the admin password automatically.</p>
       <div class="rows">{rows}</div>
     </div>"""
     css = ("body{background:#f6f7f9}.wrap{max-width:1000px;margin:0 auto;padding:16px}"
@@ -426,7 +434,8 @@ def _opt_loc(raw) -> int | None:
 async def admin_rep(request: Request, rep: Rep = Depends(require_admin)):
     form = await request.form()
     email = (form.get("email") or "").strip().lower()
-    if get_rep(email):
+    target = get_rep(email)
+    if target:
         try:
             size = max(1, min(10, int(form.get("slate_size") or 3)))
         except ValueError:
@@ -434,9 +443,22 @@ async def admin_rep(request: Request, rep: Rep = Depends(require_admin)):
         # blank min/max-loc -> None -> cleared (floor inherits global; ceiling = none)
         floor = _opt_loc(form.get("location_floor"))
         ceil = _opt_loc(form.get("max_locations"))
-        overrides.set_fields(email, active=("active" in form), auto_slate=("auto_slate" in form),
+
+        # admin role change (you can never demote yourself). On a real change, sync
+        # the login password so admin-board access stays gated by the admin secret.
+        want_admin = ("make_admin" in form) or (email == rep.email)
+        extra: dict = {}
+        if want_admin != target.is_admin:
+            extra["role"] = "admin" if want_admin else "rep"
+            if want_admin and settings.bootstrap_password_admin:
+                auth.set_password(email, settings.bootstrap_password_admin)
+            elif not want_admin and settings.bootstrap_password:
+                auth.set_password(email, settings.bootstrap_password)
+
+        overrides.set_fields(email, active=("active" in form) or want_admin,
+                             auto_slate=("auto_slate" in form),
                              slate_size=size, location_floor=floor, max_locations=ceil,
-                             team=(form.get("team") or "").strip())
+                             team=(form.get("team") or "").strip(), **extra)
     return RedirectResponse("/admin", status_code=303)
 
 
