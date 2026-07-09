@@ -500,14 +500,18 @@ async def admin_unassigned(rep: Rep = Depends(require_admin),
         f'<option value="{_html.escape(r.email)}">{_html.escape(r.rep_name)}</option>'
         for r in sorted(active_reps(), key=lambda r: r.rep_name.lower())
     )
+    from .pipeline.enrich import company_record_url
+    portal_id = settings.hubspot_portal_id
     rows = ""
     for c in pool:
         loc = "—" if c["locations"] is None else str(c["locations"])
         sub = " · ".join(x for x in [c["domain"], c["vertical"], c["status"]] if x)
+        hs = company_record_url(portal_id, c["id"])
         rows += f"""
         <div class="r">
           <div class="who"><b>{_html.escape(c['name'])}</b><span>{_html.escape(sub)}</span></div>
           <div class="loc">{loc} loc</div>
+          <a class="hs" href="{_html.escape(hs)}" target="_blank" rel="noopener">HubSpot ↗</a>
           <form method="post" action="/admin/assign" class="asg">
             <input type="hidden" name="company_id" value="{_html.escape(c['id'])}">
             <input type="hidden" name="company_name" value="{_html.escape(c['name'])}">
@@ -533,6 +537,7 @@ async def admin_unassigned(rep: Rep = Depends(require_admin),
            ".r{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid #e6e8ec;border-radius:10px;padding:8px 12px;margin:6px 0}"
            ".who{flex:1;min-width:200px;display:flex;flex-direction:column}.who span{font-size:11px;color:#646b76}"
            ".loc{font-size:13px;font-weight:700;color:#5b21b6;white-space:nowrap}"
+           ".hs{font-size:12px;font-weight:700;color:#4f46e5;text-decoration:none;white-space:nowrap}"
            ".asg{display:flex;gap:6px;align-items:center}.asg select{padding:6px;border:1px solid #e6e8ec;border-radius:8px;font-size:13px;max-width:160px}"
            ".flash{background:#d1fae5;border:1px solid #a7f3d0;color:#065f46;border-radius:10px;padding:10px 12px;margin:12px 0;font-size:14px}"
            ".btn.sm{padding:7px 12px;font-size:13px}.hint{color:#646b76;font-size:13px}")
