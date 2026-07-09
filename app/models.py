@@ -123,6 +123,7 @@ class Company(BaseModel):
     hq_phone: str = ""
     overview: str = ""
     flags: str = ""
+    manual: bool = False                          # True => rep added it via "+ Add company"
     contacts: list[Contact] = Field(default_factory=list)
 
 
@@ -143,7 +144,7 @@ class PageData(BaseModel):
                     "id": c.id, "name": c.name, "domain": c.domain, "vertical": c.vertical,
                     "status": c.status, "last_touch": c.last_touch, "hubspot": c.hubspot,
                     "reconnect_ok": c.reconnect_ok, "proof": c.proof, "hq_phone": c.hq_phone,
-                    "overview": c.overview, "flags": c.flags,
+                    "overview": c.overview, "flags": c.flags, "manual": c.manual,
                     "contacts": [
                         {
                             "tier": ct.tier, "name": ct.name, "title": ct.title, "li": ct.li,

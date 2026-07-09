@@ -42,6 +42,7 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Hel
 .bubble.done{border-color:#16a34a;background:linear-gradient(180deg,#f1fbf4,#fff)}
 .bubble .glow{position:absolute;right:-40px;top:-40px;width:130px;height:130px;border-radius:50%;background:radial-gradient(circle,rgba(99,102,241,.16),transparent 70%)}
 .vtag{display:inline-block;font-size:11px;font-weight:700;color:#5b21b6;background:#efe9ff;padding:4px 9px;border-radius:999px}
+.mtag{display:inline-block;font-size:11px;font-weight:800;color:#065f46;background:#d1fae5;border:1px solid #a7f3d0;padding:3px 9px;border-radius:999px;margin-left:6px}
 .bname{font-size:19px;font-weight:800;margin:12px 0 4px}
 .bmeta{font-size:12.5px;color:#646b76;line-height:1.5}
 .dorm{margin-top:10px;font-size:12px;font-weight:700;color:#b45309;background:#fff6e8;border:1px solid #fde9c8;padding:6px 10px;border-radius:10px;display:inline-block}
@@ -130,7 +131,7 @@ function grid(){
     const d=document.createElement('div');d.className="bubble"+(done?" done":"");
     const since=c.last_touch?("Dormant since "+esc((c.last_touch||'').split(' ')[0])):"Never contacted";
     d.innerHTML=`<div class="glow"></div><div class="donebadge">&#10003; reopened</div>
-      <div><span class="vtag">${esc(c.vertical)}</span>
+      <div><span class="vtag">${esc(c.vertical)}</span>${c.manual?'<span class="mtag">+ Added by you</span>':''}
       <div class="bname">${esc(c.name)}</div>
       <div class="bmeta">${esc(c.domain)} &middot; ${esc(c.status)}</div>
       <div class="dorm">${since}</div></div>

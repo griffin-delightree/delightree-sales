@@ -111,6 +111,7 @@ async def build_slate(rep: Rep, *, now: datetime | None = None, draft: bool = Tr
             company = await enrich_company(client, rep, cand, portal_id=portal_id)
             if draft:
                 company = draft_company(company)
+            company.manual = bool(item.get("manual"))
             companies.append(company)
 
     # --- persist tracker + page ---
@@ -207,6 +208,7 @@ async def add_company(rep: Rep, company_id: str, *, draft: bool = True,
         company = await enrich_company(client, rep, cand, portal_id=portal_id)
         if draft:
             company = draft_company(company)
+        company.manual = True
 
     # merge into the existing page payload (replace if already present, else append)
     data = storage.load_data_json(owner_id) or {
