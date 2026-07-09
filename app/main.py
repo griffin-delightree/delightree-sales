@@ -14,6 +14,7 @@ Routes (all data routes derive the rep from the SESSION, never from the URL):
 from __future__ import annotations
 
 import html as _html
+from urllib.parse import quote as _urlquote
 
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, JSONResponse
@@ -380,7 +381,8 @@ def admin(rep: Rep = Depends(require_admin)):
              f'<button class="btn sm ghost" type="submit">Run the 7AM batch now (test)</button></form></div>')
     inner = f"""
     <div class="bar"><div><b>Admin</b> · rep settings <span class="muted">({n_active} active of {len(reps)})</span></div>
-      <a class="btn ghost" href="/">← back to my slate</a></div>
+      <div class="actions"><a class="btn ghost" href="/admin/unassigned">Unassigned ICP accounts →</a>
+      <a class="btn ghost" href="/">← back to my slate</a></div></div>
     <div class="wrap">
       {sched}
       <form method="post" action="/admin/bulk" class="bulk">
@@ -460,6 +462,92 @@ async def admin_bulk(request: Request, rep: Rep = Depends(require_admin)):
     if fields and targets:
         overrides.set_bulk(targets, **fields)
     return RedirectResponse("/admin", status_code=303)
+
+
+@app.post("/admin/assign")
+async def admin_assign(request: Request, rep: Rep = Depends(require_admin)):
+    """Assign an unowned ICP account to a rep by pinning it to that rep's slate
+    (no HubSpot write). Researched in the background under the target rep's owner."""
+    form = await request.form()
+    company_id = (form.get("company_id") or "").strip()
+    email = (form.get("email") or "").strip().lower()
+    name = (form.get("company_name") or "").strip()
+    target = get_rep(email)
+    if company_id and target and target.active:
+        jobs.start_assign(target, company_id)
+        msg = f"Assigned {name or company_id} to {target.rep_name} — building their slate now."
+    else:
+        msg = "Could not assign: pick an active rep."
+    return RedirectResponse(f"/admin/unassigned?msg={_urlquote(msg)}", status_code=303)
+
+
+@app.get("/admin/unassigned", response_class=HTMLResponse)
+async def admin_unassigned(rep: Rep = Depends(require_admin),
+                           min: int = 0, max: int = 0, unknown: int = 0, msg: str = ""):
+    """ICP accounts with NO owner — nobody is working them. Same ICP gates as the
+    daily search. Admin can assign one to a rep."""
+    from .hubspot.eligibility import unowned_icp_pool
+    floor = min if min > 0 else settings.location_floor
+    ceiling = max if max > 0 else None
+    incl = bool(unknown)
+    try:
+        pool = await unowned_icp_pool(floor=floor, ceiling=ceiling, include_unknown=incl)
+        err = ""
+    except Exception as e:
+        pool, err = [], str(e)
+
+    reps_opts = "".join(
+        f'<option value="{_html.escape(r.email)}">{_html.escape(r.rep_name)}</option>'
+        for r in sorted(active_reps(), key=lambda r: r.rep_name.lower())
+    )
+    rows = ""
+    for c in pool:
+        loc = "—" if c["locations"] is None else str(c["locations"])
+        sub = " · ".join(x for x in [c["domain"], c["vertical"], c["status"]] if x)
+        rows += f"""
+        <div class="r">
+          <div class="who"><b>{_html.escape(c['name'])}</b><span>{_html.escape(sub)}</span></div>
+          <div class="loc">{loc} loc</div>
+          <form method="post" action="/admin/assign" class="asg">
+            <input type="hidden" name="company_id" value="{_html.escape(c['id'])}">
+            <input type="hidden" name="company_name" value="{_html.escape(c['name'])}">
+            <select name="email">{reps_opts}</select>
+            <button class="btn sm" type="submit">Assign</button>
+          </form>
+        </div>"""
+    if err:
+        rows = f'<p style="color:#b91c1c">Could not load: {_html.escape(err[:200])}</p>'
+    elif not pool:
+        rows = '<p class="muted">No unowned accounts match this filter.</p>'
+
+    ck = "checked" if incl else ""
+    filt = (f'<form method="get" action="/admin/unassigned" class="bulk">'
+            f'<b>Filter:</b> <label>min-loc <input type="number" name="min" value="{floor}" min="1" max="5000" style="width:64px"></label>'
+            f'<label>max-loc <input type="number" name="max" value="{max or ""}" min="1" max="5000" placeholder="—" style="width:64px"></label>'
+            f'<label><input type="checkbox" name="unknown" value="1" {ck}> include unknown location count</label>'
+            f'<button class="btn sm" type="submit">Apply</button></form>')
+    css = ("body{background:#f6f7f9}.wrap{max-width:1000px;margin:0 auto;padding:16px}"
+           ".bar{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#fff;border-bottom:1px solid #e6e8ec}"
+           ".bulk{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #e6e8ec;border-radius:12px;padding:12px;margin:14px 0}"
+           ".bulk input,.bulk select{padding:7px;border:1px solid #e6e8ec;border-radius:8px;font-size:13px}"
+           ".r{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid #e6e8ec;border-radius:10px;padding:8px 12px;margin:6px 0}"
+           ".who{flex:1;min-width:200px;display:flex;flex-direction:column}.who span{font-size:11px;color:#646b76}"
+           ".loc{font-size:13px;font-weight:700;color:#5b21b6;white-space:nowrap}"
+           ".asg{display:flex;gap:6px;align-items:center}.asg select{padding:6px;border:1px solid #e6e8ec;border-radius:8px;font-size:13px;max-width:160px}"
+           ".flash{background:#d1fae5;border:1px solid #a7f3d0;color:#065f46;border-radius:10px;padding:10px 12px;margin:12px 0;font-size:14px}"
+           ".btn.sm{padding:7px 12px;font-size:13px}.hint{color:#646b76;font-size:13px}")
+    inner = f"""
+    <div class="bar"><div><b>Unassigned ICP accounts</b> <span class="muted">({len(pool)} shown)</span></div>
+      <a class="btn ghost" href="/admin">← back to admin</a></div>
+    <div class="wrap">
+      {f'<div class="flash">{_html.escape(msg)}</div>' if msg else ''}
+      <p class="hint">Companies in HubSpot with <b>no owner</b> that still fit ICP (no open deal, not a customer,
+      not blacklisted, within the location band) — nobody is working these. Assign one to a rep to put it in play.
+      This pins the researched account to that rep's slate; it does not change ownership in HubSpot.</p>
+      {filt}
+      <div class="rows">{rows}</div>
+    </div>"""
+    return _shell_doc("Unassigned ICP accounts", f"<style>{css}</style>{inner}")
 
 
 @app.post("/admin/run-scheduled")

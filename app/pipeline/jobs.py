@@ -70,6 +70,30 @@ def start_add(rep: Rep, company_id: str) -> str:
     return "started"
 
 
+def _run_assign(rep: Rep, company_id: str) -> None:
+    from .assemble import add_company
+    try:
+        # admin assign: the account is unowned, so skip the owner check
+        asyncio.run(add_company(rep, company_id, enforce_owner=False))
+        result = {"status": "done", "ended": time.time()}
+    except Exception as e:
+        result = {"status": "error", "error": str(e)[:300], "ended": time.time()}
+    with _lock:
+        _jobs[rep.hubspot_owner_id] = {**_jobs.get(rep.hubspot_owner_id, {}), **result}
+
+
+def start_assign(rep: Rep, company_id: str) -> str:
+    """Admin assigns an unowned account to `rep`: research + pin to their slate,
+    in the background. Job is keyed by the TARGET rep's owner id."""
+    oid = rep.hubspot_owner_id
+    with _lock:
+        if (_jobs.get(oid) or {}).get("status") == "running":
+            return "already_running"
+        _jobs[oid] = {"status": "running", "started": time.time()}
+    threading.Thread(target=_run_assign, args=(rep, company_id), daemon=True).start()
+    return "started"
+
+
 def start_batch(reps: list[Rep]) -> int:
     """Generate slates for a set of reps sequentially in one background thread
     (same path the 7AM scheduler uses). Returns how many were queued."""

@@ -191,10 +191,14 @@ def _pin(tracker: dict, cid: str, name: str, today: str) -> None:
 
 
 async def add_company(rep: Rep, company_id: str, *, draft: bool = True,
-                      now: datetime | None = None) -> Company:
-    """Research one rep-owned company and append it to today's slate, pinned.
-    Incremental: enriches+drafts ONLY this company, appends to data.json, re-renders.
-    Raises NotOwned if the company is outside the rep's book (scoping guard)."""
+                      now: datetime | None = None, enforce_owner: bool = True) -> Company:
+    """Research one company and append it to `rep`'s slate, pinned. Incremental:
+    enriches+drafts ONLY this company, appends to data.json, re-renders.
+
+    enforce_owner=True (rep self-serve add): raises NotOwned unless the company is
+    in the rep's book — the scoping guard. enforce_owner=False is used ONLY by the
+    admin assign path (an unowned ICP account has no owner to match), where the
+    caller is already gated to admins."""
     now = now or datetime.now(timezone.utc)
     today = now.date().isoformat()
     owner_id = rep.hubspot_owner_id
@@ -202,7 +206,7 @@ async def add_company(rep: Rep, company_id: str, *, draft: bool = True,
     async with HubSpotClient() as client:
         portal_id = get_settings().hubspot_portal_id or await client.get_portal_id()
         obj = await client.get_company(company_id, all_internal_names())
-        if not company_owner_matches(obj.get("properties", {}), rep):
+        if enforce_owner and not company_owner_matches(obj.get("properties", {}), rep):
             raise NotOwned(f"company {company_id} is not in {rep.email}'s book")
         cand = to_candidate(obj, rep)
         company = await enrich_company(client, rep, cand, portal_id=portal_id)

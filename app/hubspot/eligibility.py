@@ -276,6 +276,72 @@ async def candidate_pool(
     )
 
 
+async def unowned_icp_pool(
+    *,
+    floor: int | None = None,
+    ceiling: int | None = None,
+    include_unknown: bool = False,
+    limit: int = 200,
+    client: HubSpotClient | None = None,
+) -> list[dict]:
+    """Companies with NO owner that still fit ICP — accounts nobody is working.
+    Same gates as candidate_pool (no open deal, not a customer, not excluded status,
+    location band) but the ownership branch is replaced with 'has no owner'. Dormancy
+    is not applied (an unowned account isn't 'being worked' by definition).
+
+    By default only companies with a CONFIRMED location count in the band are
+    returned (unknown-count accounts aren't confirmed ICP). Pass include_unknown to
+    surface unknown-count accounts too. Returned biggest-first as plain dicts."""
+    settings = get_settings()
+    floor = settings.location_floor if floor is None else floor
+    groups = [{"filters": [{"propertyName": p("hubspot_owner_id"), "operator": "NOT_HAS_PROPERTY"}]}]
+
+    owns = client or HubSpotClient()
+    close = client is None
+    try:
+        raw = await owns.search(
+            "companies", filter_groups=groups, properties=all_internal_names(), max_results=limit
+        )
+    finally:
+        if close:
+            await owns.aclose()
+
+    out: list[dict] = []
+    for obj in raw:
+        pr = obj.get("properties", {})
+        if _to_int(pr.get(p("open_deals"))) > 0:
+            continue
+        if _is_customer(pr.get(p("lifecyclestage")) or ""):
+            continue
+        status = pr.get(p("company_status")) or ""
+        if _status_excluded(status):
+            continue
+        loc_raw = pr.get(p("location_count"))
+        if loc_raw in (None, ""):
+            loc_raw = pr.get(p("location_count_fallback"))
+        loc = _to_int(loc_raw) if loc_raw not in (None, "") else None
+        if loc is None:
+            if not include_unknown:
+                continue
+        else:
+            if loc < floor:
+                continue
+            if ceiling is not None and loc > ceiling:
+                continue
+        last_dt = parse_hs_datetime(pr.get(p("notes_last_contacted")))
+        out.append({
+            "id": obj.get("id", ""),
+            "name": pr.get(p("name")) or "(unnamed)",
+            "domain": pr.get(p("domain")) or "",
+            "vertical": pr.get(p("vertical")) or "",
+            "locations": loc,
+            "status": status,
+            "last_touch": last_dt.date().isoformat() if last_dt else "",
+        })
+    out.sort(key=lambda c: (c["locations"] is None, -(c["locations"] or 0), c["name"].lower()))
+    return out
+
+
 def _selection_key(c: CandidateCompany):
     """Ordering: priority 1 before 2 ("No Contacts" is P2); then spec ordering -
     companies WITH prior history first (warm reconnections), oldest-dormant first;
