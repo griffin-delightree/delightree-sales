@@ -202,11 +202,16 @@ grid();
 
 
 def render_html(page: PageData, streak: int = 1, rep_name: str = "") -> str:
-    data_json = json.dumps(page.to_data_json())
+    return render_data(page.to_data_json(), streak=streak, rep_name=rep_name)
+
+
+def render_data(data: dict, streak: int = 1, rep_name: str = "") -> str:
+    """Render straight from a data.json dict (used by incremental add/remove, which
+    edit the payload directly rather than rebuilding every Company object)."""
     return (
         _TEMPLATE
-        .replace("__DATA__", data_json)
-        .replace("__DATE__", page.generated)
+        .replace("__DATA__", json.dumps(data))
+        .replace("__DATE__", data.get("generated", ""))
         .replace("__STREAK__", str(streak))
         .replace("__REPNAME__", rep_name or "")
     )

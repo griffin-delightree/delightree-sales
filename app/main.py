@@ -16,7 +16,7 @@ from __future__ import annotations
 import html as _html
 
 from fastapi import FastAPI, Request, Depends, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from .config import get_settings
@@ -197,6 +197,7 @@ def dashboard(rep: Rep = Depends(current_rep)):
         <div><b>Daily Re-Engagement</b> &middot; {_html.escape(rep.rep_name)}
              <span class="muted">(owner {_html.escape(rep.hubspot_owner_id)})</span></div>
         <div class="actions">
+          <a class="btn ghost" href="/add">+ Add company</a>
           {run_btn}
           {'<a class="btn ghost" href="/admin">Admin</a>' if rep.is_admin else ''}
           <a class="btn ghost" href="/logout">Log out</a>
@@ -220,6 +221,105 @@ def page(rep: Rep = Depends(current_rep)):
 def run(rep: Rep = Depends(current_rep)):
     jobs.start(rep)                       # kicks off a background thread, returns instantly
     return RedirectResponse("/", status_code=303)
+
+
+# ---------------------------- manual "add company" ----------------------------
+
+@app.get("/add", response_class=HTMLResponse)
+def add_page(rep: Rep = Depends(current_rep)):
+    """Search your own HubSpot companies and add one to today's slate."""
+    tracker = storage.load_tracker(rep.hubspot_owner_id)
+    pinned = tracker.get("pinned", [])
+    if pinned:
+        items = "".join(
+            f'<div class="pin"><span>{_html.escape(pn.get("name","")) or pn.get("id")}</span>'
+            f'<form method="post" action="/slate/remove">'
+            f'<input type="hidden" name="company_id" value="{_html.escape(pn.get("id",""))}">'
+            f'<button class="btn sm ghost" type="submit">Remove</button></form></div>'
+            for pn in pinned
+        )
+        pinned_block = f'<h3>Added by you</h3><div class="pins">{items}</div>'
+    else:
+        pinned_block = ""
+    building = ('<p style="color:#b45309;font-size:13px">A slate build is currently running — '
+                'wait for it to finish before adding.</p>' if jobs.is_running(rep.hubspot_owner_id) else "")
+    css = ("body{background:#f6f7f9}.wrap{max-width:760px;margin:0 auto;padding:16px}"
+           "input.q{width:100%;padding:11px;border:1px solid #e6e8ec;border-radius:10px;font-size:15px}"
+           ".res{margin:10px 0;display:flex;flex-direction:column;gap:8px}"
+           ".card{background:#fff;border:1px solid #e6e8ec;border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:12px}"
+           ".card .m{flex:1;min-width:0}.card b{font-size:14px}.card .sub{font-size:12px;color:#646b76}"
+           ".warn{font-size:11px;color:#b45309}.pins{display:flex;flex-direction:column;gap:6px;margin:8px 0}"
+           ".pin{background:#fff;border:1px solid #e6e8ec;border-radius:10px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font-size:14px}"
+           ".btn.sm{padding:7px 12px;font-size:13px}.hint{color:#646b76;font-size:13px}")
+    inner = f"""
+    <div class="bar"><div><b>Add a company</b> · {_html.escape(rep.rep_name)}</div>
+      <a class="btn ghost" href="/">← back to my slate</a></div>
+    <div class="wrap">
+      {building}
+      <p class="hint">Search your own HubSpot companies by name and add one to today's slate.
+      It gets fully researched (contacts, verification flags, A/B emails) and pinned so it stays until you remove it.
+      You can add accounts that wouldn't auto-surface (recently contacted, open deal, under your location floor) — we'll flag why.</p>
+      <input id="q" class="q" placeholder="Type a company name…" autofocus autocomplete="off">
+      <div id="res" class="res"></div>
+      {pinned_block}
+    </div>
+    <script>
+    const box=document.getElementById('q'), res=document.getElementById('res');
+    let t=null;
+    box.addEventListener('input',()=>{{clearTimeout(t);t=setTimeout(go,300);}});
+    async function go(){{
+      const q=box.value.trim();
+      if(q.length<2){{res.innerHTML='';return;}}
+      res.innerHTML='<p class="hint">Searching…</p>';
+      let data;
+      try{{ data=await (await fetch('/companies/search?q='+encodeURIComponent(q))).json(); }}
+      catch(e){{ res.innerHTML='<p class="warn">Search failed. Try again.</p>'; return; }}
+      if(!data.results||!data.results.length){{res.innerHTML='<p class="hint">No matches in your book.</p>';return;}}
+      res.innerHTML=data.results.map(c=>{{
+        const loc=(c.locations==null)?'locations unknown':c.locations+' locations';
+        const sub=[c.domain,loc,c.status,c.last_touch?('last touch '+c.last_touch):''].filter(Boolean).join(' · ');
+        const warn=c.notes&&c.notes.length?('<div class="warn">⚠ '+c.notes.join(', ')+'</div>'):'';
+        return '<div class="card"><div class="m"><b>'+esc(c.name)+'</b><div class="sub">'+esc(sub)+'</div>'+warn+'</div>'+
+          '<form method="post" action="/slate/add"><input type="hidden" name="company_id" value="'+esc(c.id)+'">'+
+          '<button class="btn sm" type="submit">Add</button></form></div>';
+      }}).join('');
+    }}
+    function esc(s){{return String(s==null?'':s).replace(/[&<>"']/g,m=>({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[m]));}}
+    </script>"""
+    return _shell_doc("Add a company", f"<style>{css}</style>{inner}")
+
+
+@app.get("/companies/search")
+async def companies_search(q: str = "", rep: Rep = Depends(current_rep)):
+    """Owner-scoped company search for the add picker (JSON). Never returns another
+    rep's companies — the search is filtered to this rep's book server-side."""
+    from .pipeline.assemble import search_owned
+    try:
+        results = await search_owned(rep, q)
+    except Exception as e:  # surface a clean message to the picker
+        return JSONResponse({"results": [], "error": str(e)[:200]}, status_code=200)
+    return JSONResponse({"results": results})
+
+
+@app.post("/slate/add")
+async def slate_add(request: Request, rep: Rep = Depends(current_rep)):
+    """Add one owned company to today's slate (researched in the background)."""
+    form = await request.form()
+    company_id = (form.get("company_id") or "").strip()
+    if company_id:
+        jobs.start_add(rep, company_id)   # background; ownership re-checked in add_company
+    return RedirectResponse("/", status_code=303)
+
+
+@app.post("/slate/remove")
+async def slate_remove(request: Request, rep: Rep = Depends(current_rep)):
+    """Un-pin a manually added company from this rep's slate."""
+    from .pipeline.assemble import remove_company
+    form = await request.form()
+    company_id = (form.get("company_id") or "").strip()
+    if company_id:
+        remove_company(rep, company_id)
+    return RedirectResponse("/add", status_code=303)
 
 
 @app.get("/healthz", response_class=PlainTextResponse)

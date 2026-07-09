@@ -80,6 +80,57 @@ def _is_customer(lifecycle: str) -> bool:
     return (lifecycle or "").lower() in {v.lower() for v in EXCLUDED_LIFECYCLE_VALUES}
 
 
+def company_owner_matches(pr: dict, rep: Rep) -> bool:
+    """True iff this company belongs to the rep's book (their owner, or an AE they
+    support with adr==them). The scoping guard for the manual add path — a rep may
+    never add a company outside their own book."""
+    owner = pr.get(p("hubspot_owner_id")) or ""
+    adr = pr.get(p("adr")) or ""
+    if owner and owner == rep.hubspot_owner_id:
+        return True
+    return bool(rep.ae_owner_ids and owner in rep.ae_owner_ids and adr == rep.hubspot_owner_id)
+
+
+def to_candidate(obj: dict, rep: Rep | None = None) -> CandidateCompany:
+    """Map a raw HubSpot company object to a CandidateCompany WITHOUT applying the
+    eligibility gates. Used by the manual add path (rep explicitly wants it) and,
+    for identical field-mapping, mirrors what candidate_pool builds for eligible ones."""
+    pr = obj.get("properties", {})
+    cid = obj.get("id", "")
+    name = pr.get(p("name")) or "(unnamed)"
+    last_dt = parse_hs_datetime(pr.get(p("notes_last_contacted")))
+    loc_raw = pr.get(p("location_count"))
+    if loc_raw in (None, ""):
+        loc_raw = pr.get(p("location_count_fallback"))
+    loc = _to_int(loc_raw) if loc_raw not in (None, "") else None
+    owner = pr.get(p("hubspot_owner_id")) or ""
+    status = pr.get(p("company_status")) or ""
+    deprio = _status_deprioritized(status)
+    reason = (
+        EligibilityReason.OWNED_BY_REP
+        if (rep is None or owner == rep.hubspot_owner_id)
+        else EligibilityReason.AE_OWNED_ADR_REP
+    )
+    return CandidateCompany(
+        id=cid,
+        name=name,
+        domain=pr.get(p("domain")) or "",
+        vertical=pr.get(p("vertical")) or "",
+        status=status,
+        lifecyclestage=pr.get(p("lifecyclestage")) or "",
+        hubspot_owner_id=owner,
+        adr=pr.get(p("adr")) or "",
+        open_deals=_to_int(pr.get(p("open_deals"))),
+        notes_last_contacted=last_dt.date().isoformat() if last_dt else None,
+        location_count=loc,
+        hubspot_url=f"https://app.hubspot.com/contacts/companies/{cid}",
+        matched_reason=reason,
+        priority=2 if deprio else 1,
+        priority_reason=deprio or "",
+        raw=pr,
+    )
+
+
 # ------------------------- query -------------------------
 
 def build_filter_groups(rep: Rep) -> list[dict]:

@@ -52,6 +52,11 @@ def save_data_json(owner_id: str, data: dict) -> None:
     _p(owner_id, "data.json").write_text(json.dumps(data, indent=2))
 
 
+def load_data_json(owner_id: str) -> dict | None:
+    path = _p(owner_id, "data.json")
+    return json.loads(path.read_text()) if path.exists() else None
+
+
 def save_page(owner_id: str, html: str) -> None:
     _p(owner_id, "daily_reengagement.html").write_text(html)
 

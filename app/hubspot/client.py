@@ -57,9 +57,12 @@ class HubSpotClient:
         *,
         sorts: list[dict] | None = None,
         max_results: int | None = None,
+        query: str | None = None,
     ) -> list[dict]:
         """Run a CRM search across all pages (filter_groups are OR'd together;
-        filters within a group are AND'd). Returns the raw result objects.
+        filters within a group are AND'd). `query` is a free-text match AND'd
+        against the filter groups (used by the manual company picker). Returns
+        the raw result objects.
         """
         path = f"/crm/v3/objects/{object_type}/search"
         results: list[dict] = []
@@ -70,6 +73,8 @@ class HubSpotClient:
                 "properties": properties,
                 "limit": SEARCH_PAGE_LIMIT,
             }
+            if query:
+                payload["query"] = query
             if sorts:
                 payload["sorts"] = sorts
             if after:
@@ -82,6 +87,14 @@ class HubSpotClient:
             if not after:
                 break
         return results
+
+    async def get_company(self, company_id: str, properties: list[str]) -> dict:
+        """Fetch a single company by id with the given properties. Raises on 404."""
+        params = {"properties": ",".join(properties)}
+        r = await self._client.get(f"/crm/v3/objects/companies/{company_id}", params=params)
+        if r.status_code >= 400:
+            raise HubSpotError(f"HubSpot {r.status_code} on company {company_id}: {r.text[:300]}")
+        return r.json()
 
     async def get_portal_id(self) -> str:
         """Fetch the account portal id (for record deep-links). Empty on failure."""
