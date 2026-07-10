@@ -49,6 +49,10 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Hel
 .bopen{margin-top:14px;font-size:13px;font-weight:800;color:#4f46e5}
 .donebadge{position:absolute;top:14px;right:14px;font-size:12px;font-weight:800;color:#16a34a;display:none}
 .bubble.done .donebadge{display:block}
+.bubble.fb{background:#fffbeb;border-color:#fde68a}
+.bubble.fb:hover{border-color:#fbbf24}
+.fbwarn{margin-top:10px;font-size:12px;font-weight:800;color:#92400e;background:#fef3c7;border:1px solid #fde68a;padding:6px 10px;border-radius:10px;display:inline-block}
+.fbbanner{margin:14px 0;font-size:14px;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fbbf24;padding:12px 14px;border-radius:12px}
 .bubble.done .bopen{color:#16a34a}
 .detail{display:none;margin-top:10px}
 .back{background:#fff;border:1px solid #e6e8ec;border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:13px}
@@ -115,6 +119,7 @@ const KEY="dpe_worked_"+DAY;
 function worked(){try{return JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){return[]}}
 function setWorked(a){localStorage.setItem(KEY,JSON.stringify(a))}
 function esc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function isFB(c){return /food\s*(&|and)?\s*beverage/i.test(c&&c.vertical||"")}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1700)}
 const SKEY="dpe_streak";
 function getStreak(){try{return JSON.parse(localStorage.getItem(SKEY)||'{"count":0,"last":null}')}catch(e){return{count:0,last:null}}}
@@ -128,13 +133,15 @@ function grid(){
   if(!DATA.companies.length){g.innerHTML='<div class="empty">No eligible dormant accounts to surface today. The pool may be exhausted, or everything is recently contacted / has an open deal.</div>';renderStreak();return}
   DATA.companies.forEach((c,i)=>{
     const done=worked().includes(c.id);
-    const d=document.createElement('div');d.className="bubble"+(done?" done":"");
+    const fb=isFB(c);
+    const d=document.createElement('div');d.className="bubble"+(done?" done":"")+(fb?" fb":"");
     const since=c.last_touch?("Dormant since "+esc((c.last_touch||'').split(' ')[0])):"Never contacted";
     d.innerHTML=`<div class="glow"></div><div class="donebadge">&#10003; reopened</div>
       <div><span class="vtag">${esc(c.vertical)}</span>${c.manual?'<span class="mtag">+ Added by you</span>':''}
       <div class="bname">${esc(c.name)}</div>
       <div class="bmeta">${esc(c.domain)} &middot; ${esc(c.status)}</div>
-      <div class="dorm">${since}</div></div>
+      <div class="dorm">${since}</div>
+      ${fb?'<div class="fbwarn">&#9888; Enhanced qualification required</div>':''}</div>
       <div class="bopen">Open full run &rarr;</div>`;
     d.onclick=()=>openCo(i);
     g.appendChild(d);
@@ -182,6 +189,7 @@ function openCo(i){
       <div class="dname">${esc(c.name)}</div>
       <div class="dlinks">${esc(c.vertical)} &middot; ${esc(c.status)} &middot; <a href="${esc(c.hubspot)}" target="_blank" rel="noopener">Open in HubSpot &#8599;</a></div>
     </div></div>
+    ${isFB(c)?`<div class="fbbanner">&#9888; Enhanced qualification required &mdash; this is a Food &amp; Beverage account.</div>`:''}
     ${c.reconnect_ok?`<div class="recon">&#128260; Warm reconnect &mdash; prior meeting/event on record: ${esc(c.last_touch)}</div>`:`<div class="recon" style="background:#f3f4f6;border-color:#e5e7eb;color:#374151">&#10003; Fresh outreach &mdash; dormant account, no meeting/event on record.${c.last_touch?(' Last touch: '+esc(c.last_touch)):''}</div>`}
     ${c.proof?`<div class="recon" style="background:#f0fdf4;border-color:#bbf7d0;color:#166534">&#127919; Proof point to reference: ${esc(c.proof)}</div>`:''}
     ${c.hq_phone?`<div class="recon" style="background:#fff7ed;border-color:#fed7aa;color:#9a3412">&#9742; HQ main line: ${esc(c.hq_phone)} &mdash; any contact number flagged below matches this or is a shared line (not a direct dial)</div>`:''}
