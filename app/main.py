@@ -199,6 +199,7 @@ def dashboard(rep: Rep = Depends(current_rep)):
              <span class="muted">(owner {_html.escape(rep.hubspot_owner_id)})</span></div>
         <div class="actions">
           <a class="btn ghost" href="/add">+ Add company</a>
+          <a class="btn ghost" href="/next-week">Next week</a>
           {run_btn}
           {'<a class="btn ghost" href="/admin">Admin</a>' if rep.is_admin else ''}
           <a class="btn ghost" href="/logout">Log out</a>
@@ -230,6 +231,73 @@ def page(rep: Rep = Depends(current_rep)):
 def run(rep: Rep = Depends(current_rep)):
     jobs.start(rep)                       # kicks off a background thread, returns instantly
     return RedirectResponse("/", status_code=303)
+
+
+# ---------------------------- weekly "next week" preview ----------------------------
+
+def _fmt_day(iso: str) -> str:
+    from datetime import date
+    try:
+        return date.fromisoformat(iso).strftime("%A · %b %-d")
+    except ValueError:
+        return iso
+
+
+def _week_plan_html(plan: dict, portal_id: str) -> str:
+    from .pipeline.enrich import company_record_url
+    if not plan or not plan.get("days"):
+        return ('<p class="muted">No plan yet. Next week\'s slate is planned automatically '
+                'each Friday.</p>')
+    cols = ""
+    for day in plan["days"]:
+        accts = day.get("accounts", [])
+        if accts:
+            cards = "".join(
+                f'<div class="wa">'
+                f'<div class="wn">{_html.escape(a.get("name",""))}</div>'
+                f'<div class="wm">{_html.escape(" · ".join(x for x in [a.get("vertical",""), a.get("status","")] if x))}</div>'
+                f'<div class="wl">{("Dormant since "+_html.escape(a.get("last_touch",""))) if a.get("last_touch") else "Never contacted"}'
+                f' · <a href="{_html.escape(company_record_url(portal_id, a.get("id","")))}" target="_blank" rel="noopener">HubSpot ↗</a></div>'
+                f'</div>'
+                for a in accts
+            )
+        else:
+            cards = '<div class="we">—</div>'
+        cols += f'<div class="wcol"><div class="wh">{_fmt_day(day["date"])}<span>{len(accts)}</span></div>{cards}</div>'
+    return f'<div class="wgrid">{cols}</div>'
+
+
+@app.get("/next-week", response_class=HTMLResponse)
+def next_week(rep: Rep = Depends(current_rep)):
+    plan = storage.load_week_plan(rep.hubspot_owner_id)
+    body = _week_plan_html(plan, settings.hubspot_portal_id)
+    wk = f' — week of {_fmt_day(plan["week_of"])}' if plan else ""
+    css = _WEEK_CSS
+    inner = f"""
+    <div class="bar"><div><b>Next week</b>{wk} · {_html.escape(rep.rep_name)}</div>
+      <a class="btn ghost" href="/">← back to my slate</a></div>
+    <div class="wrap">
+      <p class="hint">Your planned accounts for next week, spread across each day. These fill your daily
+      slate automatically (re-checked each morning; if one gets worked or opened elsewhere it's swapped out).
+      Drafts are written the morning each account surfaces.</p>
+      {body}
+    </div>"""
+    return _shell_doc("Next week", f"<style>{css}</style>{inner}")
+
+
+_WEEK_CSS = ("body{background:#f6f7f9}.wrap{max-width:1200px;margin:0 auto;padding:16px}"
+             ".bar{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#fff;border-bottom:1px solid #e6e8ec}"
+             ".hint{color:#646b76;font-size:13px}"
+             ".wgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:12px}"
+             "@media(max-width:900px){.wgrid{grid-template-columns:1fr}}"
+             ".wcol{background:#f0f1f4;border-radius:12px;padding:8px;min-height:80px}"
+             ".wh{font-size:12px;font-weight:800;color:#312e81;padding:4px 6px 8px;display:flex;justify-content:space-between;align-items:center}"
+             ".wh span{background:#e0e7ff;color:#4338ca;border-radius:999px;padding:1px 8px;font-size:11px}"
+             ".wa{background:#fff;border:1px solid #e6e8ec;border-radius:10px;padding:8px 10px;margin:6px 0}"
+             ".wn{font-size:13px;font-weight:700}.wm{font-size:11px;color:#646b76;margin-top:2px}"
+             ".wl{font-size:11px;color:#8a909a;margin-top:4px}.wl a{color:#4f46e5;font-weight:700;text-decoration:none}"
+             ".we{color:#a0a6b0;text-align:center;padding:12px;font-size:13px}"
+             ".btn.sm{padding:7px 12px;font-size:13px}")
 
 
 # ---------------------------- manual "add company" ----------------------------
@@ -394,7 +462,10 @@ def admin(rep: Rep = Depends(require_admin)):
              f'<input type="hidden" name="enabled" value="{toggle_to}">'
              f'<button class="btn sm" type="submit">{toggle_label}</button></form>'
              f'<form method="post" action="/admin/run-scheduled" style="display:inline">'
-             f'<button class="btn sm ghost" type="submit">Run the 7AM batch now (test)</button></form></div>')
+             f'<button class="btn sm ghost" type="submit">Run the 7AM batch now (test)</button></form>'
+             f'<form method="post" action="/admin/plan-week" style="display:inline">'
+             f'<button class="btn sm ghost" type="submit">Plan next week now (test)</button></form>'
+             f'<a class="btn sm ghost" href="/admin/next-week">View next-week plans →</a></div>')
     inner = f"""
     <div class="bar"><div><b>Admin</b> · rep settings <span class="muted">({n_active} active of {len(reps)})</span></div>
       <div class="actions"><a class="btn ghost" href="/admin/unassigned">Unassigned ICP accounts →</a>
@@ -592,6 +663,41 @@ def admin_run_scheduled(rep: Rep = Depends(require_admin)):
     targets = [r for r in active_reps() if r.auto_slate]
     jobs.start_batch(targets)
     return RedirectResponse("/admin", status_code=303)
+
+
+@app.post("/admin/plan-week")
+def admin_plan_week(rep: Rep = Depends(require_admin)):
+    """Run the Friday planning now (all auto_slate reps) + post the Slack summary."""
+    targets = [r for r in active_reps() if r.auto_slate]
+    jobs.start_week_planning(targets)
+    return RedirectResponse("/admin/next-week?msg=" + _urlquote(
+        f"Planning next week for {len(targets)} rep(s) — refresh in a moment."), status_code=303)
+
+
+@app.get("/admin/next-week", response_class=HTMLResponse)
+def admin_next_week(rep: Rep = Depends(require_admin), msg: str = ""):
+    """Overview of every rep's next-week plan."""
+    reps = [r for r in active_reps() if r.auto_slate] or active_reps()
+    portal_id = settings.hubspot_portal_id
+    blocks = ""
+    for r in sorted(reps, key=lambda r: r.rep_name.lower()):
+        plan = storage.load_week_plan(r.hubspot_owner_id)
+        n = sum(len(d.get("accounts", [])) for d in plan.get("days", [])) if plan else 0
+        wk = f' · week of {_fmt_day(plan["week_of"])}' if plan else ""
+        blocks += (f'<div class="repblk"><div class="rh"><b>{_html.escape(r.rep_name)}</b> '
+                   f'<span class="muted">{n} planned{wk}</span></div>'
+                   f'{_week_plan_html(plan, portal_id)}</div>')
+    flash = f'<div class="flash">{_html.escape(msg)}</div>' if msg else ""
+    css = _WEEK_CSS + ".repblk{margin:18px 0}.rh{margin:6px 2px}.flash{background:#d1fae5;border:1px solid #a7f3d0;color:#065f46;border-radius:10px;padding:10px 12px;margin:12px 0;font-size:14px}"
+    inner = f"""
+    <div class="bar"><div><b>Next-week plans</b> <span class="muted">({len(reps)} reps)</span></div>
+      <a class="btn ghost" href="/admin">← back to admin</a></div>
+    <div class="wrap">{flash}
+      <p class="hint">Planned Friday for the coming week (eligibility only — drafts are written each
+      morning). Use "Plan next week now" on the admin board to (re)generate.</p>
+      {blocks}
+    </div>"""
+    return _shell_doc("Next-week plans", f"<style>{css}</style>{inner}")
 
 
 @app.post("/admin/schedule-toggle")

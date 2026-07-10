@@ -30,6 +30,12 @@ services:
         value: America/Denver
       - key: SCHEDULE_HOUR
         value: "7"
+      # Friday "next week" planning hour (24h, in SCHEDULE_TZ). Same on/off toggle as the morning run.
+      - key: SCHEDULE_WEEKLY_HOUR
+        value: "15"
+      # Public URL used in Slack links (no trailing slash)
+      - key: PUBLIC_BASE_URL
+        value: https://delightree-portal.onrender.com
       # --- paste these in the Render dashboard (Environment tab) ---
       - key: HUBSPOT_TOKEN
         sync: false
@@ -38,4 +44,6 @@ services:
       - key: BOOTSTRAP_PASSWORD   # first-login temp password for the whole team (reps)
         sync: false
       - key: BOOTSTRAP_PASSWORD_ADMIN   # dedicated admin-board password (admins only)
+        sync: false
+      - key: SLACK_WEBHOOK_URL    # Slack incoming-webhook for the Friday preview post (optional)
         sync: false

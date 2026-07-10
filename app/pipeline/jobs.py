@@ -94,6 +94,26 @@ def start_assign(rep: Rep, company_id: str) -> str:
     return "started"
 
 
+def _plan_weekly(reps: list[Rep]) -> None:
+    from .weekly import plan_week
+    from .. import notify
+    plans = []
+    for rep in reps:
+        try:
+            plans.append((rep, asyncio.run(plan_week(rep))))
+        except Exception:
+            pass
+    if plans:
+        notify.post_weekly_summary(plans)
+
+
+def start_week_planning(reps: list[Rep]) -> int:
+    """Plan the coming week for a set of reps in a background thread, then post the
+    Slack summary. Planning is eligibility-only (cheap, no drafting)."""
+    threading.Thread(target=_plan_weekly, args=(list(reps),), daemon=True).start()
+    return len(reps)
+
+
 def start_batch(reps: list[Rep]) -> int:
     """Generate slates for a set of reps sequentially in one background thread
     (same path the 7AM scheduler uses). Returns how many were queued."""

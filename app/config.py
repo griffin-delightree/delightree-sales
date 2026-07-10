@@ -68,6 +68,14 @@ class Settings(BaseSettings):
     schedule_enabled: bool = Field(default=False, alias="SCHEDULE_ENABLED")
     schedule_hour: int = Field(default=7, alias="SCHEDULE_HOUR")        # 24h local time
     schedule_tz: str = Field(default="America/Denver", alias="SCHEDULE_TZ")
+    # Friday "next week" planning (day-of-week fixed to Friday; hour configurable)
+    schedule_weekly_hour: int = Field(default=15, alias="SCHEDULE_WEEKLY_HOUR")
+
+    # --- notifications ---
+    # Slack incoming-webhook URL; if set, the Friday planning job posts a summary.
+    slack_webhook_url: str = Field(default="", alias="SLACK_WEBHOOK_URL")
+    # Public base URL for links in notifications (no trailing slash).
+    public_base_url: str = Field(default="https://delightree-portal.onrender.com", alias="PUBLIC_BASE_URL")
 
 
 @lru_cache

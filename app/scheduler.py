@@ -38,6 +38,28 @@ def _run_enabled() -> None:
             log.error("scheduler: slate FAILED for %s: %s", rep.email, e)
 
 
+def _run_weekly() -> None:
+    """Friday: plan the coming week for opted-in reps, then post the Slack summary.
+    Gated by the same admin on/off toggle as the morning run."""
+    from . import schedule_state
+    if not schedule_state.is_enabled():
+        log.info("scheduler: weekly plan fired but morning run is OFF; skipping")
+        return
+    reps = [r for r in active_reps() if getattr(r, "auto_slate", False)]
+    log.info("scheduler: planning next week for %d rep(s)", len(reps))
+    from .pipeline.weekly import plan_week
+    from . import notify
+    plans = []
+    for rep in reps:
+        try:
+            plans.append((rep, asyncio.run(plan_week(rep))))
+            log.info("scheduler: planned week for %s", rep.email)
+        except Exception as e:
+            log.error("scheduler: weekly plan FAILED for %s: %s", rep.email, e)
+    if plans:
+        notify.post_weekly_summary(plans)
+
+
 def start_scheduler():
     """Register the weekday-morning job ALWAYS. Whether it does anything when it
     fires is decided at fire time by schedule_state.is_enabled(), so the admin can
@@ -56,7 +78,13 @@ def start_scheduler():
         id="daily_slates",
         misfire_grace_time=3600,
     )
+    _scheduler.add_job(
+        _run_weekly,
+        CronTrigger(day_of_week="fri", hour=s.schedule_weekly_hour, minute=0),
+        id="weekly_plan",
+        misfire_grace_time=3600,
+    )
     _scheduler.start()
-    log.info("scheduler registered: weekday %02d:00 %s (gated by admin toggle)",
-             s.schedule_hour, s.schedule_tz)
+    log.info("scheduler registered: daily %02d:00 + weekly Fri %02d:00 %s (gated by admin toggle)",
+             s.schedule_hour, s.schedule_weekly_hour, s.schedule_tz)
     return _scheduler

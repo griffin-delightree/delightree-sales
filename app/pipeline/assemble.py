@@ -85,8 +85,15 @@ async def build_slate(rep: Rep, *, now: datetime | None = None, draft: bool = Tr
             else:
                 newly_completed.append(cid)
 
-        # (3) fill to the rep's slate size from the pool (ordered P1/oldest-first)
-        for cand in run.eligible:
+        # (3) fill to the rep's slate size. If a weekly plan exists, today's planned
+        # accounts come first (validated: only those still in the eligible pool),
+        # then the rest of the pool backfills. No plan -> plain P1/oldest-first.
+        from . import weekly
+        planned = weekly.planned_ids_for(owner_id, today)
+        planned_set = set(planned)
+        fill_order = [by_id[i] for i in planned if i in by_id]
+        fill_order += [c for c in run.eligible if c.id not in planned_set]
+        for cand in fill_order:
             if len(new_slate) >= size:
                 break
             if cand.id in seen or cand.id in completed or cand.id in newly_completed:
