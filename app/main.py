@@ -211,6 +211,14 @@ def dashboard(rep: Rep = Depends(current_rep)):
 
 @app.get("/page", response_class=HTMLResponse)
 def page(rep: Rep = Depends(current_rep)):
+    # Render live from the stored payload so presentation/template changes show on a
+    # plain refresh (no costly re-draft). Fall back to the cached HTML if no payload.
+    data = storage.load_data_json(rep.hubspot_owner_id)
+    if data is not None:
+        from .render import render_data
+        tracker = storage.load_tracker(rep.hubspot_owner_id)
+        streak = int(tracker.get("streak_days", 0)) or 1
+        return HTMLResponse(render_data(data, streak=streak, rep_name=rep.rep_name))
     html = storage.load_page(rep.hubspot_owner_id)
     if html is None:
         return HTMLResponse("<p style='font-family:sans-serif;padding:24px'>No slate generated yet. "
