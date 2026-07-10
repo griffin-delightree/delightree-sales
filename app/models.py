@@ -147,6 +147,7 @@ class PageData(BaseModel):
                     "overview": c.overview, "flags": c.flags, "manual": c.manual,
                     "contacts": [
                         {
+                            "id": ct.id,
                             "tier": ct.tier, "name": ct.name, "title": ct.title, "li": ct.li,
                             "email": ct.email, "email_note": ct.email_note, "phone": ct.phone,
                             "hub": ct.hub, "hub_url": ct.hub_url, "local": ct.local,

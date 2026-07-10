@@ -74,6 +74,15 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Hel
 .verif{margin-top:10px;background:#fee2e2;border:1px solid #fecaca;color:#b91c1c;border-radius:10px;padding:8px 11px;font-size:12.5px;font-weight:800;line-height:1.5}
 .verif a{color:#b91c1c;text-decoration:underline}
 .verif.held{background:#fef2f2;border-color:#f87171}
+.verif.ok{background:#dcfce7;border-color:#86efac;color:#166534}
+.verif.ok a{color:#166534}
+.vbtn{margin-left:8px;font-size:11px;font-weight:800;border:1px solid currentColor;background:transparent;color:inherit;border-radius:999px;padding:2px 10px;cursor:pointer}
+.vbtn.undo{font-weight:700;opacity:.8}
+.srcbox{margin:12px 0 4px;background:#f0f7ff;border:1px solid #cfe3ff;border-radius:12px;padding:12px 14px}
+.srch{font-size:13px;font-weight:800;color:#1e40af;margin-bottom:8px}
+.srclinks{display:flex;flex-wrap:wrap;gap:8px}
+.src{font-size:12px;font-weight:700;color:#0a66c2;background:#fff;border:1px solid #cfe3ff;border-radius:999px;padding:5px 11px;text-decoration:none}
+.srcnote{font-size:11px;color:#5b6472;margin-top:8px}
 .emails{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
 @media(max-width:680px){.emails{grid-template-columns:1fr}}
 .em{border:1px solid #e9ebef;border-radius:12px;padding:13px;background:#fafbfc}
@@ -118,7 +127,12 @@ const DAY="__DATE__";
 const KEY="dpe_worked_"+DAY;
 function worked(){try{return JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){return[]}}
 function setWorked(a){localStorage.setItem(KEY,JSON.stringify(a))}
+const VKEY="dpe_verified";
+function verifiedSet(){try{return JSON.parse(localStorage.getItem(VKEY)||"[]")}catch(e){return[]}}
+function isVerified(k){return verifiedSet().includes(k)}
+function setVerified(k,on){let a=verifiedSet();if(on){if(!a.includes(k))a.push(k)}else{a=a.filter(x=>x!==k)}localStorage.setItem(VKEY,JSON.stringify(a))}
 function esc(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function liPeople(q){return "https://www.linkedin.com/search/results/people/?keywords="+encodeURIComponent(q)}
 function isFB(c){return /food\s*(&|and)?\s*beverage/i.test(c&&c.vertical||"")}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1700)}
 const SKEY="dpe_streak";
@@ -155,12 +169,19 @@ function emailCard(tag,subj,body){
     <div class="emsub">Subject: <b>${esc(subj)}</b></div>
     <div class="embody">${esc(body)}\n\n${esc(DATA.signature)}</div></div>`;
 }
-function contact(c){
+function contact(c,coId){
   const li=`<a href="${esc(c.li)}" target="_blank" rel="noopener">${esc(c.name)}</a>`;
   const emailWarn=/NO EMAIL|BAD|INVALID|DUPLICATE|not found|pattern-guess/i.test(c.email_note||"")||c.email==="not found";
   const unverified=c.verif_status && c.verif_status!=='linkedin_verified';
   const held=c.verif_status==='held_out';
-  const verif=unverified?`<div class="verif${held?' held':''}">&#9888; ${esc(c.verif_label)} &mdash; <a href="${esc(c.li)}" target="_blank" rel="noopener">confirm on LinkedIn &#8599;</a></div>`:'';
+  const vk=(coId||'')+'|'+(c.id||c.name||'');
+  const done=isVerified(vk);
+  let verif='';
+  if(done){
+    verif=`<div class="verif ok">&#10003; You confirmed this person on LinkedIn &mdash; <a href="${esc(c.li)}" target="_blank" rel="noopener">re-open profile &#8599;</a> <button class="vbtn undo" data-vk="${esc(vk)}">undo</button></div>`;
+  }else if(unverified){
+    verif=`<div class="verif${held?' held':''}">&#9888; ${esc(c.verif_label)} &mdash; <a href="${esc(c.li)}" target="_blank" rel="noopener">confirm on LinkedIn &#8599;</a> ${held?'':`<button class="vbtn" data-vk="${esc(vk)}">Mark verified</button>`}</div>`;
+  }
   let emails="";
   if(c.a_subj){emails=`<div class="emails">${emailCard('A',c.a_subj,c.a_body)}${emailCard('B',c.b_subj,c.b_body)}</div>`}
   let linkedin="";
@@ -193,15 +214,26 @@ function openCo(i){
     ${c.reconnect_ok?`<div class="recon">&#128260; Warm reconnect &mdash; prior meeting/event on record: ${esc(c.last_touch)}</div>`:`<div class="recon" style="background:#f3f4f6;border-color:#e5e7eb;color:#374151">&#10003; Fresh outreach &mdash; dormant account, no meeting/event on record.${c.last_touch?(' Last touch: '+esc(c.last_touch)):''}</div>`}
     ${c.proof?`<div class="recon" style="background:#f0fdf4;border-color:#bbf7d0;color:#166534">&#127919; Proof point to reference: ${esc(c.proof)}</div>`:''}
     ${c.hq_phone?`<div class="recon" style="background:#fff7ed;border-color:#fed7aa;color:#9a3412">&#9742; HQ main line: ${esc(c.hq_phone)} &mdash; any contact number flagged below matches this or is a shared line (not a direct dial)</div>`:''}
-    <div class="card"><div class="ov">${esc(c.overview)}</div><div class="flag"><b>FLAG:</b> ${esc(c.flags)}</div></div>`;
-  ["T1","T2","T3"].forEach(t=>{if(tiers[t]&&tiers[t].length){body+=`<div class="tier">${t} Contacts</div>`;tiers[t].forEach(x=>body+=contact(x))}});
+    <div class="card"><div class="ov">${esc(c.overview)}</div><div class="flag"><b>FLAG:</b> ${esc(c.flags)}</div></div>
+    ${sourceBlock(c)}`;
+  ["T1","T2","T3"].forEach(t=>{if(tiers[t]&&tiers[t].length){body+=`<div class="tier">${t} Contacts</div>`;tiers[t].forEach(x=>body+=contact(x,c.id))}});
   const done=worked().includes(c.id);
   body+=`<div class="markbar"><button class="mark ${done?'done':''}" id="markbtn" onclick="mark('${c.id}')">${done?'&#10003; Reopened':'Mark reopened'}</button>
     <span style="color:#646b76;font-size:13px">Sends nothing &mdash; just tracks your progress &amp; streak.</span></div>
     <div style="height:30px"></div>`;
   D.innerHTML=body;
   D.querySelectorAll('.copy').forEach(b=>b.onclick=()=>{navigator.clipboard.writeText(b.getAttribute('data-c'));b.textContent='Copied';b.classList.add('ok');setTimeout(()=>{b.textContent='Copy';b.classList.remove('ok')},1200)});
+  D.querySelectorAll('.vbtn').forEach(b=>b.onclick=()=>{const k=b.getAttribute('data-vk');setVerified(k,!isVerified(k));openCo(i)});
   window.scrollTo(0,0);
+}
+function sourceBlock(c){
+  const titles=["VP Operations","Director of Operations","Franchise Development","COO","President"];
+  const links=titles.map(t=>`<a class="src" href="${liPeople('"'+(c.name||'')+'" '+t)}" target="_blank" rel="noopener">${esc(t)} &#8599;</a>`).join("");
+  const all=`<a class="src" href="${liPeople(c.name||'')}" target="_blank" rel="noopener">All people &#8599;</a>`;
+  const thin=(c.contacts||[]).length<2;
+  const head=thin?'&#9888; Few or no contacts on file &mdash; source them on LinkedIn:':'Find more contacts on LinkedIn:';
+  return `<div class="srcbox"><div class="srch">${head}</div><div class="srclinks">${all}${links}</div>`+
+    `<div class="srcnote">Opens a LinkedIn people search for this company + role. Confirm the person on their profile, then work them here (drafts are a template) or add them in HubSpot.</div></div>`;
 }
 function closeCo(){document.getElementById('detail').style.display='none';document.getElementById('home').style.display='block';grid();window.scrollTo(0,0)}
 function mark(id){let w=worked();if(w.includes(id)){w=w.filter(x=>x!==id);toast('Unmarked')}else{w.push(id);toast('Nice. Reopened. 🔥')}setWorked(w);const b=document.getElementById('markbtn');const done=w.includes(id);b.className='mark '+(done?'done':'');b.innerHTML=done?'&#10003; Reopened':'Mark reopened'}
