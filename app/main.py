@@ -466,11 +466,27 @@ def admin(rep: Rep = Depends(require_admin)):
              f'<form method="post" action="/admin/plan-week" style="display:inline">'
              f'<button class="btn sm ghost" type="submit">Plan next week now (test)</button></form>'
              f'<a class="btn sm ghost" href="/admin/next-week">View next-week plans →</a></div>')
+    # password hygiene: admins must use a distinct, non-empty admin password
+    ap, rp = settings.bootstrap_password_admin, settings.bootstrap_password
+    n_admin = sum(1 for r in reps if r.is_admin)
+    if not ap:
+        pw_banner = ('<div class="pwwarn">&#9888; <b>Admin password not set.</b> '
+                     'Admins are falling back to the standard rep password. Set '
+                     '<code>BOOTSTRAP_PASSWORD_ADMIN</code> in Render to a strong, distinct value.</div>')
+    elif ap == rp:
+        pw_banner = ('<div class="pwwarn">&#9888; <b>Admin password equals the rep password.</b> '
+                     'Change <code>BOOTSTRAP_PASSWORD_ADMIN</code> in Render so it differs from '
+                     '<code>BOOTSTRAP_PASSWORD</code>.</div>')
+    else:
+        pw_banner = (f'<div class="pwok">&#10003; Admin access is protected by a distinct admin '
+                     f'password ({n_admin} admin(s)). It differs from the rep password.</div>')
+
     inner = f"""
     <div class="bar"><div><b>Admin</b> · rep settings <span class="muted">({n_active} active of {len(reps)})</span></div>
       <div class="actions"><a class="btn ghost" href="/admin/unassigned">Unassigned ICP accounts →</a>
       <a class="btn ghost" href="/">← back to my slate</a></div></div>
     <div class="wrap">
+      {pw_banner}
       {sched}
       <form method="post" action="/admin/bulk" class="bulk">
         <b>Bulk:</b>
@@ -486,6 +502,9 @@ def admin(rep: Rep = Depends(require_admin)):
       <div class="rows">{rows}</div>
     </div>"""
     css = ("body{background:#f6f7f9}.wrap{max-width:1000px;margin:0 auto;padding:16px}"
+           ".pwwarn{background:#fef2f2;border:1px solid #fca5a5;color:#991b1b;border-radius:10px;padding:10px 13px;margin:14px 0;font-size:13px}"
+           ".pwok{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:10px;padding:9px 13px;margin:14px 0;font-size:13px}"
+           ".pwwarn code,.pwok code{background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;font-size:12px}"
            ".sched{background:#fff;border:1px solid #e6e8ec;border-radius:12px;padding:12px;margin:14px 0;font-size:13px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}"
            ".bar{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#fff;border-bottom:1px solid #e6e8ec}"
            ".bulk{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #e6e8ec;border-radius:12px;padding:12px;margin:14px 0}"
