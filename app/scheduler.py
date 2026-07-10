@@ -57,7 +57,8 @@ def _run_weekly() -> None:
         except Exception as e:
             log.error("scheduler: weekly plan FAILED for %s: %s", rep.email, e)
     if plans:
-        notify.post_weekly_summary(plans)
+        report = notify.send_weekly(plans)
+        log.info("scheduler: weekly Slack %s", report)
 
 
 def start_scheduler():

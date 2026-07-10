@@ -104,7 +104,7 @@ def _plan_weekly(reps: list[Rep]) -> None:
         except Exception:
             pass
     if plans:
-        notify.post_weekly_summary(plans)
+        notify.send_weekly(plans)
 
 
 def start_week_planning(reps: list[Rep]) -> int:

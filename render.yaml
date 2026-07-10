@@ -45,5 +45,7 @@ services:
         sync: false
       - key: BOOTSTRAP_PASSWORD_ADMIN   # dedicated admin-board password (admins only)
         sync: false
-      - key: SLACK_WEBHOOK_URL    # Slack incoming-webhook for the Friday preview post (optional)
+      - key: SLACK_BOT_TOKEN      # Slack bot token (xoxb-...) -> DMs each rep their own plan (preferred)
+        sync: false
+      - key: SLACK_WEBHOOK_URL    # fallback: one-channel summary if no bot token (optional)
         sync: false

@@ -72,7 +72,10 @@ class Settings(BaseSettings):
     schedule_weekly_hour: int = Field(default=15, alias="SCHEDULE_WEEKLY_HOUR")
 
     # --- notifications ---
-    # Slack incoming-webhook URL; if set, the Friday planning job posts a summary.
+    # Slack bot token (xoxb-...): DMs each rep their own plan (keyed by email).
+    # Preferred over the webhook. Needs scopes users:read.email + chat:write.
+    slack_bot_token: str = Field(default="", alias="SLACK_BOT_TOKEN")
+    # Slack incoming-webhook URL: fallback that posts ONE channel summary if no bot token.
     slack_webhook_url: str = Field(default="", alias="SLACK_WEBHOOK_URL")
     # Public base URL for links in notifications (no trailing slash).
     public_base_url: str = Field(default="https://delightree-portal.onrender.com", alias="PUBLIC_BASE_URL")
