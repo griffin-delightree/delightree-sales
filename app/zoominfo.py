@@ -108,9 +108,29 @@ def _records(payload: dict) -> list[dict]:
 
 def _linkedin_from(rec: dict) -> str:
     for u in (rec.get("externalUrls") or []):
-        if isinstance(u, dict) and str(u.get("type", "")).upper().replace("-", "_") in ("LINKED_IN", "LINKEDIN"):
-            return u.get("url") or ""
+        if not isinstance(u, dict):
+            continue
+        t = str(u.get("type", "")).lower()
+        url = u.get("url") or ""
+        if "linkedin" in t or "linkedin.com" in url.lower():
+            return url
     return rec.get("linkedInUrl") or rec.get("linkedin_url") or ""
+
+
+# Rank search results so we enrich decision-makers first (enrich is what costs credits).
+_TITLE_PRIORITY = [
+    "chief", "ceo", "coo", "cfo", "cmo", "president", "founder", "owner",
+    "vice president", "vp", "head of", "franchise", "director of operations",
+    "operations", "director", "general manager",
+]
+
+
+def _title_rank(title: str) -> int:
+    t = (title or "").lower()
+    for i, kw in enumerate(_TITLE_PRIORITY):
+        if kw in t:
+            return i
+    return 99
 
 
 async def source_contacts(*, company_name: str = "", domain: str = "", cap: int = 8) -> list[dict]:
@@ -133,6 +153,8 @@ async def source_contacts(*, company_name: str = "", domain: str = "", cap: int 
                                    json={"data": {"type": "ContactSearch", "attributes": attrs}})
             sr.raise_for_status()
             found = _records(sr.json())
+            # enrich the most senior first (credit control + relevance)
+            found.sort(key=lambda r: _title_rank(r.get("jobTitle") or r.get("title") or ""))
             ids = [r.get("id") for r in found if r.get("id")][:cap]
             if not ids:
                 return []
