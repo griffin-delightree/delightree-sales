@@ -694,6 +694,15 @@ async def admin_zoominfo_test(rep: Rep = Depends(require_admin), company: str = 
     if not (company or domain):
         domain = "chipotle.com"  # harmless well-known test target
     result = await zoominfo.diagnostic(company_name=company, domain=domain)
+    # Also exercise the EXACT function the slate uses, so we see the normalized
+    # contacts the pipeline would append (names/titles/emails/LinkedIn).
+    pipeline_out = []
+    if result.get("ok"):
+        try:
+            pipeline_out = await zoominfo.source_contacts(company_name=company, domain=domain, cap=5)
+        except Exception as e:
+            pipeline_out = [{"error": str(e)[:200]}]
+    result["pipeline_source_contacts"] = pipeline_out
     ok = result.get("ok")
     configured = zoominfo.configured()
     sourcing = settings.zoominfo_sourcing
