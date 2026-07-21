@@ -152,7 +152,13 @@ async def diagnostic(company_name: str = "", domain: str = "") -> dict:
     """Run auth + a sample search + enrich and return RAW payloads for verification.
     Used by /admin/zoominfo-test. Never raises — reports the failure instead."""
     if not configured():
-        return {"ok": False, "step": "config", "error": "ZOOMINFO_CLIENT_ID/SECRET not set"}
+        s = get_settings()
+        return {"ok": False, "step": "config",
+                "ZOOMINFO_CLIENT_ID_visible": bool(s.zoominfo_client_id),
+                "ZOOMINFO_CLIENT_SECRET_visible": bool(s.zoominfo_client_secret),
+                "hint": "Both must be true. If either is false, that env var name isn't matching "
+                        "exactly (underscores, no quotes/spaces) or the deploy with it isn't Live yet.",
+                "error": "credentials not visible to the app"}
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             try:
