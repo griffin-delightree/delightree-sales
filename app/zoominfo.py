@@ -105,7 +105,7 @@ async def source_contacts(*, company_name: str = "", domain: str = "", cap: int 
             if not token:
                 return []
             hdr = {"Authorization": f"Bearer {token}",
-                   "Content-Type": "application/json", "Accept": "application/json"}
+                   "Content-Type": "application/vnd.api+json", "Accept": "application/vnd.api+json"}
             attrs: dict = {}
             if domain:
                 attrs["companyWebsite"] = domain
@@ -169,7 +169,7 @@ async def diagnostic(company_name: str = "", domain: str = "") -> dict:
             if not token:
                 return {"ok": False, "step": "auth", "error": "no access_token returned"}
             hdr = {"Authorization": f"Bearer {token}",
-                   "Content-Type": "application/json", "Accept": "application/json"}
+                   "Content-Type": "application/vnd.api+json", "Accept": "application/vnd.api+json"}
             attrs = ({"companyWebsite": domain} if domain
                      else {"companyName": company_name or "ZoomInfo"})
             attrs["managementLevel"] = DEFAULT_MGMT_LEVELS
