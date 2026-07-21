@@ -484,6 +484,7 @@ def admin(rep: Rep = Depends(require_admin)):
     inner = f"""
     <div class="bar"><div><b>Admin</b> · rep settings <span class="muted">({n_active} active of {len(reps)})</span></div>
       <div class="actions"><a class="btn ghost" href="/admin/unassigned">Unassigned ICP accounts →</a>
+      <a class="btn ghost" href="/admin/zoominfo-test">ZoomInfo test →</a>
       <a class="btn ghost" href="/">← back to my slate</a></div></div>
     <div class="wrap">
       {pw_banner}
@@ -682,6 +683,39 @@ def admin_run_scheduled(rep: Rep = Depends(require_admin)):
     targets = [r for r in active_reps() if r.auto_slate]
     jobs.start_batch(targets)
     return RedirectResponse("/admin", status_code=303)
+
+
+@app.get("/admin/zoominfo-test", response_class=HTMLResponse)
+async def admin_zoominfo_test(rep: Rep = Depends(require_admin), company: str = "", domain: str = ""):
+    """Verify the ZoomInfo connection: runs auth + a sample search + enrich and
+    shows the raw payloads. Use this before flipping ZOOMINFO_SOURCING on."""
+    from . import zoominfo
+    import json as _json
+    if not (company or domain):
+        domain = "chipotle.com"  # harmless well-known test target
+    result = await zoominfo.diagnostic(company_name=company, domain=domain)
+    ok = result.get("ok")
+    configured = zoominfo.configured()
+    sourcing = settings.zoominfo_sourcing
+    pretty = _html.escape(_json.dumps(result, indent=2))
+    status = ("🟢 Connection OK" if ok else "🔴 Not working")
+    css = ("body{background:#f6f7f9;font-family:system-ui}.wrap{max-width:900px;margin:0 auto;padding:16px}"
+           ".bar{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#fff;border-bottom:1px solid #e6e8ec}"
+           "pre{background:#0b1020;color:#d6e2ff;padding:14px;border-radius:10px;overflow:auto;font-size:12px;line-height:1.5}"
+           ".s{font-size:13px;margin:10px 0}code{background:#eee;padding:1px 5px;border-radius:4px}")
+    inner = f"""
+    <div class="bar"><div><b>ZoomInfo connection test</b></div>
+      <a class="btn ghost" href="/admin">← back to admin</a></div>
+    <div class="wrap">
+      <h2>{status}</h2>
+      <p class="s">Credentials present (client id + secret): <b>{'yes' if configured else 'NO — set ZOOMINFO_CLIENT_ID/SECRET in Render'}</b><br>
+      Slate sourcing switch (<code>ZOOMINFO_SOURCING</code>): <b>{'ON' if sourcing else 'off'}</b>
+      {'' if sourcing else '— keep off until this test is green, then set it true in Render.'}</p>
+      <p class="s">Test target: <code>{_html.escape(domain or company)}</code>. Try another: add
+      <code>?domain=example.com</code> or <code>?company=Some+Brand</code> to the URL.</p>
+      <pre>{pretty}</pre>
+    </div>"""
+    return _shell_doc("ZoomInfo test", f"<style>{css}</style>{inner}")
 
 
 @app.post("/admin/plan-week")

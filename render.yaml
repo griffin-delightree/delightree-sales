@@ -45,6 +45,15 @@ services:
         sync: false
       - key: BOOTSTRAP_PASSWORD_ADMIN   # dedicated admin-board password (admins only)
         sync: false
+      # ZoomInfo net-new contact sourcing (OAuth2 client-credentials API app)
+      - key: ZOOMINFO_CLIENT_ID
+        sync: false
+      - key: ZOOMINFO_CLIENT_SECRET
+        sync: false
+      # Keep "false" until /admin/zoominfo-test is green; then flip to "true" to
+      # start pulling net-new contacts into the daily slate.
+      - key: ZOOMINFO_SOURCING
+        value: "false"
       - key: SLACK_BOT_TOKEN      # Slack bot token (xoxb-...) -> DMs each rep their own plan (preferred)
         sync: false
       - key: SLACK_WEBHOOK_URL    # fallback: one-channel summary if no bot token (optional)

@@ -19,6 +19,7 @@ from collections import Counter
 from ..config import get_settings
 from ..models import CandidateCompany, Company, Contact
 from ..registry import Rep
+from .. import zoominfo
 from ..tiering import tier_for, TIER_ORDER, Role
 from ..verification import assess, label_for, linkedin_url, sources_note
 from ..hubspot.client import HubSpotClient, HubSpotError
@@ -124,6 +125,31 @@ async def enrich_company(client: HubSpotClient, rep: Rep, cand: CandidateCompany
             )
         )
 
+    # 2b) net-new contacts from ZoomInfo (gated by ZOOMINFO_SOURCING; fully non-breaking)
+    zi_added = 0
+    if get_settings().zoominfo_sourcing and zoominfo.configured():
+        try:
+            seen_names = {c.name.strip().lower() for c in built}
+            seen_emails = {c.email.strip().lower() for c in built if c.email and c.email != "not found"}
+            for zi in await zoominfo.source_contacts(company_name=cand.name, domain=cand.domain, cap=8):
+                nm = zi["name"].strip().lower()
+                em = (zi["email"] or "").strip().lower()
+                if nm in seen_names or (em and em in seen_emails):
+                    continue
+                c = _zi_contact(zi, rep, cand, hq_phone, apollo_on)
+                if c is None:
+                    continue
+                built.append(c)
+                seen_names.add(nm)
+                if em:
+                    seen_emails.add(em)
+                for ph in (zi["phone"], zi["mobile"]):
+                    if ph:
+                        phone_counter[_digits(ph)] += 1
+                zi_added += 1
+        except Exception:
+            zi_added = 0
+
     # 3) phone flagging (HQ main / shared lines), comparing on normalized digits
     hq_digits = _digits(hq_phone)
     for c in built:
@@ -143,7 +169,7 @@ async def enrich_company(client: HubSpotClient, rep: Rep, cand: CandidateCompany
 
     # 5) overview / flags (basic; LLM step enriches)
     overview = _basic_overview(cand)
-    flags = _flags(cand, built, contacts_error, zoominfo_on, apollo_on)
+    flags = _flags(cand, built, contacts_error, zoominfo_on, apollo_on, zi_added)
     proof = _PROOF.get(cand.vertical, _PROOF_DEFAULT)
 
     return Company(
@@ -152,6 +178,31 @@ async def enrich_company(client: HubSpotClient, rep: Rep, cand: CandidateCompany
         hubspot=company_record_url(portal_id, cand.id) or cand.hubspot_url,
         reconnect_ok=False, proof=proof, hq_phone=hq_phone,
         overview=overview, flags=flags, contacts=built,
+    )
+
+
+def _zi_contact(zi: dict, rep: Rep, cand: CandidateCompany, hq_phone: str,
+                apollo_on: bool) -> Contact | None:
+    """Turn a ZoomInfo-sourced contact dict into a tiered, verification-flagged Contact."""
+    title = zi.get("title") or ""
+    tier, role = tier_for(title, cand.location_count)
+    if role is Role.EXCLUDED or tier == "":
+        return None
+    shown_phone = zi.get("mobile") or zi.get("phone") or ""
+    # ZoomInfo corroborated, but the server never opens LinkedIn -> still flagged
+    status = assess(linkedin_checked=False, zoominfo_active=True)
+    li = linkedin_url(zi.get("linkedin") or "", zi["name"], cand.name)
+    email = zi.get("email") or ""
+    return Contact(
+        id="zi:" + str(zi.get("zi_id") or ""),
+        name=zi["name"], title=title, tier=tier, li=li,
+        email=email or "not found",
+        email_note=("sourced via ZoomInfo" if email else "no email from ZoomInfo - pattern-guess before outreach"),
+        phone=shown_phone or "not found",
+        hub="net-new (ZoomInfo)", hub_url="",
+        verif_status=status, verif_label=label_for(status),
+        verif_sources=sources_note(zoominfo=True, apollo=apollo_on, company_page=False),
+        local=bool(_area_code(shown_phone) in rep.home_area_codes and _area_code(shown_phone) != _area_code(hq_phone)),
     )
 
 
@@ -175,9 +226,10 @@ def _basic_overview(c: CandidateCompany) -> str:
 
 
 def _flags(c: CandidateCompany, contacts: list[Contact], contacts_error: str,
-           zoominfo_on: bool, apollo_on: bool) -> str:
+           zoominfo_on: bool, apollo_on: bool, zi_added: int = 0) -> str:
     bits: list[str] = []
-    bits.append(f"{len(contacts)} contact(s) sourced from HubSpot.")
+    hub_n = len(contacts) - zi_added
+    bits.append(f"{hub_n} contact(s) from HubSpot" + (f" + {zi_added} net-new from ZoomInfo." if zi_added else "."))
     bits.append("ALL contacts are NOT LinkedIn-verified - confirm each on the live profile before outreach.")
     if c.location_count is None:
         bits.append("Unit count unverified - confirm 20+ locations via web/FDD.")
@@ -185,7 +237,11 @@ def _flags(c: CandidateCompany, contacts: list[Contact], contacts_error: str,
         bits.append(f"Deprioritized (P2): {c.priority_reason}.")
     if contacts_error:
         bits.append(f"HubSpot contacts fetch failed ({contacts_error[:80]}) - check token scopes.")
-    if not (zoominfo_on and apollo_on):
+    s = get_settings()
+    if s.zoominfo_sourcing and zoominfo.configured():
+        if not zi_added:
+            bits.append("ZoomInfo sourcing on (no net-new contacts returned for this company).")
+    elif not (zoominfo_on and apollo_on):
         missing = [n for n, on in [("ZoomInfo", zoominfo_on), ("Apollo", apollo_on)] if not on]
         bits.append("Net-new sourcing disabled (" + ", ".join(missing) + " not configured).")
     return " ".join(bits)

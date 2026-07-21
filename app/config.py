@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     zoominfo_username: str = Field(default="", alias="ZOOMINFO_USERNAME")
     zoominfo_password: str = Field(default="", alias="ZOOMINFO_PASSWORD")
     zoominfo_client_id: str = Field(default="", alias="ZOOMINFO_CLIENT_ID")
+    zoominfo_client_secret: str = Field(default="", alias="ZOOMINFO_CLIENT_SECRET")
+    # Master switch for pulling net-new contacts from ZoomInfo into the daily slate.
+    # Kept OFF until the connection is verified via /admin/zoominfo-test (avoids
+    # burning credits / breaking slates on an unverified integration).
+    zoominfo_sourcing: bool = Field(default=False, alias="ZOOMINFO_SOURCING")
     apollo_api_key: str = Field(default="", alias="APOLLO_API_KEY")
 
     # --- Google OAuth (step 6) ---
