@@ -23,10 +23,30 @@ from .config import get_settings
 
 BASE = "https://api.zoominfo.com/gtm"
 
-# Broad leadership net; the portal's tiering (by job title) orders them afterward.
-DEFAULT_MGMT_LEVELS = "C-Level,VP-Level,Director,Manager"
-
 _token: dict = {"value": None, "exp": 0.0}
+
+
+def _website(domain: str) -> str:
+    """ZoomInfo's companyWebsite wants http://www.example.com format, not a bare domain."""
+    d = (domain or "").strip().lower()
+    for pre in ("https://", "http://"):
+        if d.startswith(pre):
+            d = d[len(pre):]
+    if d.startswith("www."):
+        d = d[4:]
+    d = d.split("/")[0]
+    return f"http://www.{d}" if d else ""
+
+
+def _search_attrs(company_name: str = "", domain: str = "") -> dict:
+    """Company match criteria for a contact search — prefer domain (precise)."""
+    if domain:
+        w = _website(domain)
+        if w:
+            return {"companyWebsite": w}
+    if company_name:
+        return {"companyName": company_name}
+    return {}
 
 
 def configured() -> bool:
@@ -106,14 +126,9 @@ async def source_contacts(*, company_name: str = "", domain: str = "", cap: int 
                 return []
             hdr = {"Authorization": f"Bearer {token}",
                    "Content-Type": "application/vnd.api+json", "Accept": "application/vnd.api+json"}
-            attrs: dict = {}
-            if domain:
-                attrs["companyWebsite"] = domain
-            elif company_name:
-                attrs["companyName"] = company_name
-            else:
+            attrs = _search_attrs(company_name, domain)
+            if not attrs:
                 return []
-            attrs["managementLevel"] = DEFAULT_MGMT_LEVELS
             sr = await client.post(f"{BASE}/data/v1/contacts/search", headers=hdr,
                                    json={"data": {"type": "ContactSearch", "attributes": attrs}})
             sr.raise_for_status()
@@ -170,9 +185,7 @@ async def diagnostic(company_name: str = "", domain: str = "") -> dict:
                 return {"ok": False, "step": "auth", "error": "no access_token returned"}
             hdr = {"Authorization": f"Bearer {token}",
                    "Content-Type": "application/vnd.api+json", "Accept": "application/vnd.api+json"}
-            attrs = ({"companyWebsite": domain} if domain
-                     else {"companyName": company_name or "ZoomInfo"})
-            attrs["managementLevel"] = DEFAULT_MGMT_LEVELS
+            attrs = _search_attrs(company_name, domain) or {"companyName": company_name or "ZoomInfo"}
             sr = await client.post(f"{BASE}/data/v1/contacts/search", headers=hdr,
                                    json={"data": {"type": "ContactSearch", "attributes": attrs}})
             search_json = _safe_json(sr)
