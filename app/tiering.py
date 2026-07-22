@@ -123,52 +123,42 @@ def classify_role(title: str) -> Role:
     return Role.OTHER_ICP
 
 
-def band_of(location_count: int | None) -> str:
-    """10-25 / 26-50 / 50+. Unknown -> assume 50+ (most inclusive; C-suite is T1
-    regardless, and this errs toward surfacing more contacts, per exhaustive-coverage)."""
-    if location_count is None:
-        return "50+"
-    if location_count <= 25:
-        return "10-25"
-    if location_count <= 50:
-        return "26-50"
-    return "50+"
+# NBM seniority-first tiering (per the "Which meetings earn NBM credit" chart):
+#   T1 = C-suite / President / Founder / Managing Partner / VP-SVP  (via _is_csuite)
+#   T2 = Director or Head-of in a buyer function
+#   T3 = manager-level & below, plus HR / Legal / Real Estate / Consultant /
+#        FBC / Field / franchise success-support at manager level
+# Franchisees / unit / store are EXCLUDED (classify_role).
+_ALWAYS_T3_FUNC = [
+    "human resources", " hr ", "people operations", "talent",
+    "legal", "counsel", "attorney", "paralegal",
+    "real estate", "realty",
+    "consultant", "advisor", "adviser",
+    "franchise business consultant", "fbc", "field consultant", "field coach",
+    "business coach", "franchise coach", "field manager",
+]
 
 
-# Tier tables per band. C-suite handled by override (always T1); the ALWAYS-T3
-# families (Franchise Dev / HR / Finance) handled by override too.
-_T1 = {
-    "10-25": {Role.OPERATIONS},
-    "26-50": {Role.OPERATIONS, Role.SUPPORT, Role.COMPLIANCE},
-    "50+":  {Role.OPERATIONS, Role.SUPPORT, Role.COMPLIANCE},
-}
-_T2 = {
-    "10-25": {Role.TRAINING, Role.SUPPORT, Role.FBC},
-    "26-50": {Role.TRAINING, Role.FBC, Role.REGIONAL_VP, Role.GROWTH},
-    "50+":  {Role.TRAINING, Role.FBC, Role.REGIONAL_VP, Role.GROWTH},
-}
-# everything corporate not in T1/T2 and not an always-T3 family defaults to T2
+def _is_director(title: str) -> bool:
+    if "director" in _tokens(title):
+        return True
+    return "head of " in f" {(title or '').lower()} "
 
 
-ALWAYS_T3 = {Role.FRANCHISE_DEV, Role.HR, Role.FINANCE}
-
-
-def tier_for(title: str, location_count: int | None) -> tuple[str, Role]:
-    """Return ("T1"|"T2"|"T3", Role). EXCLUDED roles return ("", EXCLUDED)."""
+def tier_for(title: str, location_count: int | None = None) -> tuple[str, Role]:
+    """NBM seniority tier. EXCLUDED (franchisee/unit/store) -> ("", EXCLUDED).
+    location_count is accepted for signature stability but no longer bands tiers."""
     role = classify_role(title)
     if role is Role.EXCLUDED:
         return "", role
-    if role is Role.CSUITE:                       # C-suite override: always T1
+    if _is_csuite(title):                          # C-suite/President/Founder/MP/VP/SVP -> T1
         return "T1", role
-    if role in ALWAYS_T3:                          # Franchise Dev / HR / Finance: always T3
+    t = f" {(title or '').lower().strip()} "
+    if _has(t, _ALWAYS_T3_FUNC):                   # HR/Legal/RealEstate/Consultant/FBC/Field -> T3
         return "T3", role
-    band = band_of(location_count)
-    if role in _T1[band]:
-        return "T1", role
-    if role in _T2[band]:
+    if _is_director(title):                        # Director / Head-of a buyer function -> T2
         return "T2", role
-    # OTHER_ICP or a role not elevated in this band -> T2 (kept, per exhaustive coverage)
-    return "T2", role
+    return "T3", role                              # manager-level & below -> T3
 
 
 # tier sort weight for ordering within a company
