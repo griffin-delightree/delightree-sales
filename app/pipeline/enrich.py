@@ -131,7 +131,8 @@ async def enrich_company(client: HubSpotClient, rep: Rep, cand: CandidateCompany
         try:
             seen_names = {c.name.strip().lower() for c in built}
             seen_emails = {c.email.strip().lower() for c in built if c.email and c.email != "not found"}
-            for zi in await zoominfo.source_contacts(company_name=cand.name, domain=cand.domain, cap=8):
+            for zi in await zoominfo.source_contacts(company_name=cand.name, domain=cand.domain,
+                                                     cap=8, location_count=cand.location_count):
                 nm = zi["name"].strip().lower()
                 em = (zi["email"] or "").strip().lower()
                 if nm in seen_names or (em and em in seen_emails):

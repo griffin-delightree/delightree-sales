@@ -30,11 +30,16 @@ class Role(str, Enum):
     EXCLUDED = "excluded"                     # franchisee / store-level / broker -> drop
 
 
-# C-suite detection uses WHOLE-WORD tokens: abbreviations like "cto"/"coo" must not
-# match inside words such as "dire[cto]r" or "[coo]rdinator". "president" is C-suite
-# only when not "vice president"; "partner" is excluded (false positives).
-_CSUITE_ABBREV = {"ceo", "cfo", "coo", "cmo", "cto", "cso", "cgo", "cio", "cro", "chro", "cxo"}
-_CSUITE_WORDS = {"chief", "founder", "cofounder", "owner", "principal"}
+# C-suite / T1-seniority detection uses WHOLE-WORD tokens: abbreviations like
+# "cto"/"coo" must not match inside words such as "dire[cto]r" or "[coo]rdinator".
+# Per the NBM tiers, T1 = C-suite, President, Founder, Managing Partner, VP/SVP.
+# NOTE: "owner" is intentionally NOT here — a bare "Owner" at a franchise brand is
+# almost always a FRANCHISEE (the customer's customer), so it's excluded below.
+# A legitimate corporate owner is essentially always also Founder/CEO/President and
+# is caught by those tokens.
+_CSUITE_ABBREV = {"ceo", "cfo", "coo", "cmo", "cto", "cso", "cgo", "cio", "cro", "chro", "cxo", "cpo", "cdo"}
+_CSUITE_WORDS = {"chief", "founder", "cofounder", "principal"}
+_VP_ABBREV = {"vp", "svp", "evp"}
 
 
 def _tokens(title: str) -> set[str]:
@@ -47,10 +52,21 @@ def _is_csuite(title: str) -> bool:
         return True
     if toks & _CSUITE_WORDS:
         return True
-    if "president" in toks and "vice" not in toks:   # President yes, Vice President no
+    if toks & _VP_ABBREV:                            # VP/SVP/EVP in any buyer dept -> T1
+        return True
+    if "vice" in toks and "president" in toks:       # "Vice President ..." -> T1
+        return True
+    if "president" in toks:                          # President -> T1
+        return True
+    if "managing" in toks and "partner" in toks:     # Managing Partner -> T1
         return True
     return False
-_EXCLUDED = ["franchisee", "franchise owner", "store", "barista", "crew member",
+
+
+# Franchisee / unit-level / store-level / broker titles -> never a corporate buyer -> drop.
+_EXCLUDED = ["franchisee", "franchise owner", "owner/operator", "owner operator",
+             "owner-operator", "operator", "multi-unit owner", "multi unit owner",
+             "unit owner", "franchise partner", "store", "barista", "crew member",
              "design consultant", "sales representative", "account executive",
              "franchise opportunit", "franserve", "franchoice", "ifpg", "broker",
              "recruiter", "intern"]
@@ -77,6 +93,10 @@ def classify_role(title: str) -> Role:
         return Role.EXCLUDED
     if _is_csuite(title):
         return Role.CSUITE
+    # A bare "Owner" (no C-suite/Founder/President signal) at a franchise brand is a
+    # franchisee, not corporate HQ -> drop. (Founder/CEO/President owners were caught above.)
+    if "owner" in _tokens(title):
+        return Role.EXCLUDED
     # ALWAYS-T3 families before the general ops/support matching
     if _has(t, _FRANCHISE_DEV):
         return Role.FRANCHISE_DEV

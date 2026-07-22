@@ -117,23 +117,8 @@ def _linkedin_from(rec: dict) -> str:
     return rec.get("linkedInUrl") or rec.get("linkedin_url") or ""
 
 
-# Rank search results so we enrich decision-makers first (enrich is what costs credits).
-_TITLE_PRIORITY = [
-    "chief", "ceo", "coo", "cfo", "cmo", "president", "founder", "owner",
-    "vice president", "vp", "head of", "franchise", "director of operations",
-    "operations", "director", "general manager",
-]
-
-
-def _title_rank(title: str) -> int:
-    t = (title or "").lower()
-    for i, kw in enumerate(_TITLE_PRIORITY):
-        if kw in t:
-            return i
-    return 99
-
-
-async def source_contacts(*, company_name: str = "", domain: str = "", cap: int = 8) -> list[dict]:
+async def source_contacts(*, company_name: str = "", domain: str = "", cap: int = 8,
+                          location_count: int | None = None) -> list[dict]:
     """Return up to `cap` net-new contacts for a company as normalized dicts:
     {name, first, last, title, email, phone, mobile, linkedin, zi_id}. [] on any
     problem (never raises to the caller)."""
@@ -153,9 +138,18 @@ async def source_contacts(*, company_name: str = "", domain: str = "", cap: int 
                                    json={"data": {"type": "ContactSearch", "attributes": attrs}})
             sr.raise_for_status()
             found = _records(sr.json())
-            # enrich the most senior first (credit control + relevance)
-            found.sort(key=lambda r: _title_rank(r.get("jobTitle") or r.get("title") or ""))
-            ids = [r.get("id") for r in found if r.get("id")][:cap]
+            # Filter to ICP personas + rank by tier BEFORE enrich (credits + relevance).
+            # tier_for excludes franchisees/store/operator titles (returns "").
+            from .tiering import tier_for, TIER_ORDER
+            ranked = []
+            for r in found:
+                title = r.get("jobTitle") or r.get("title") or ""
+                tier, _role = tier_for(title, location_count)
+                if tier == "":          # franchisee / unit-level / excluded -> skip
+                    continue
+                ranked.append((TIER_ORDER.get(tier, 9), r))
+            ranked.sort(key=lambda x: x[0])
+            ids = [r.get("id") for _, r in ranked if r.get("id")][:cap]
             if not ids:
                 return []
             er = await client.post(f"{BASE}/data/v1/contacts/enrich", headers=hdr, json={"data": {
